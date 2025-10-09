@@ -179,11 +179,13 @@ function ConfiguracoesView({ onStart }: { onStart: () => void }) {
 function JogoView({ 
   cameraStream,
   score,
-  setScore 
+  setScore,
+  isIos,
 }: { 
   cameraStream: MediaStream | null;
   score: number;
   setScore: React.Dispatch<React.SetStateAction<number>>;
+  isIos: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -193,42 +195,86 @@ function JogoView({
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
   const lastVideoTimeRef = useRef(-1);
   const animationFrameId = useRef<number | null>(null);
-  const circleRef = useRef<{ x: number; y: number; radius: number; visible: boolean } | null>(null);
+  const circleRef = useRef<{ id: number; x: number; y: number; radius: number; visible: boolean } | null>(null);
   const [sphereImage, setSphereImage] = useState<HTMLImageElement | null>(null);
-  const [isGameReady, setIsGameReady] = useState(false);
+  const [explosionImage, setExplosionImage] = useState<HTMLImageElement | null>(null);
+  const explosionRef = useRef<{ x: number; y: number; radius: number, timestamp: number } | null>(null);
   const needsToSpawnCircle = useRef(false);
+  const sphereTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const img = new window.Image();
-    img.src = '/img/sphere.png';
-    img.onload = () => {
-      setSphereImage(img);
-      setIsGameReady(true);
+    const sphereImg = new window.Image();
+    sphereImg.src = '/img/sphere.png';
+    sphereImg.onload = () => {
+      setSphereImage(sphereImg);
+    };
+
+    const explodeImg = new window.Image();
+    explodeImg.src = '/img/explode.png';
+    explodeImg.onload = () => {
+        setExplosionImage(explodeImg);
     };
   }, []);
   
   useEffect(() => {
-    if (!isGameReady) return;
+    if (!sphereImage || !explosionImage) return;
 
     const video = videoRef.current;
     if (!video || !cameraStream) return;
 
     video.srcObject = cameraStream;
     
-    const spawnCircle = () => {
-      const canvas = canvasRef.current;
-      if (!canvas || canvas.width === 0 || canvas.height === 0) return;
-  
-      // Raio responsivo (12% da menor dimensão do canvas)
-      const radius = Math.min(canvas.width, canvas.height) * 0.12;
-      
-      // Garante que o círculo não apareça muito perto das bordas
-      const padding = radius + 10; 
-      const x = Math.random() * (canvas.width - padding * 2) + padding;
-      const y = Math.random() * (canvas.height - padding * 2) + padding;
-      
-      circleRef.current = { x, y, radius, visible: true };
-      needsToSpawnCircle.current = false;
+    const spawnCircle = (landmarks: any[]) => {
+        const canvas = canvasRef.current;
+        if (!canvas || canvas.width === 0 || canvas.height === 0) return;
+    
+        const radius = Math.min(canvas.width, canvas.height) * 0.12;
+        const padding = radius + 10;
+        const collisionRadius = radius * 2.5; // Safety distance from player
+        let x: number, y: number;
+        let isColliding = true;
+        let attempts = 0;
+    
+        while (isColliding && attempts < 10) {
+            isColliding = false;
+            x = Math.random() * (canvas.width - padding * 2) + padding;
+            y = Math.random() * (canvas.height - padding * 2) + padding;
+    
+            if (landmarks) {
+                for (const landmark of landmarks) {
+                    for (const point of landmark) {
+                        const dx = point.x * canvas.width - x;
+                        const dy = point.y * canvas.height - y;
+                        if (Math.sqrt(dx * dx + dy * dy) < collisionRadius) {
+                            isColliding = true;
+                            break;
+                        }
+                    }
+                    if (isColliding) break;
+                }
+            }
+            attempts++;
+        }
+        
+        // Fallback to random position if it can't find a free spot
+        if (isColliding) {
+            x = Math.random() * (canvas.width - padding * 2) + padding;
+            y = Math.random() * (canvas.height - padding * 2) + padding;
+        }
+    
+        const newCircleId = Date.now();
+        circleRef.current = { id: newCircleId, x: x!, y: y!, radius, visible: true };
+        needsToSpawnCircle.current = false;
+    
+        if (sphereTimeoutRef.current) {
+            clearTimeout(sphereTimeoutRef.current);
+        }
+    
+        sphereTimeoutRef.current = setTimeout(() => {
+            if (circleRef.current && circleRef.current.id === newCircleId) {
+                needsToSpawnCircle.current = true;
+            }
+        }, 4000);
     };
     
     const startMediaPipe = async () => {
@@ -238,7 +284,6 @@ function JogoView({
       const canvasCtx = canvas.getContext('2d');
       if (!canvasCtx) return;
 
-      const drawingUtils = new DrawingUtils(canvasCtx);
       try {
         const vision = await FilesetResolver.forVisionTasks(
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
@@ -249,7 +294,7 @@ function JogoView({
             delegate: 'GPU',
           },
           runningMode: 'VIDEO',
-          numPoses: 1, // Apenas 1 jogador
+          numPoses: 3,
         });
         predictWebcam();
       } catch (e) {
@@ -290,16 +335,15 @@ function JogoView({
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (needsToSpawnCircle.current && canvas.width > 0 && canvas.height > 0) {
-        spawnCircle();
-      }
-
       const startTimeMs = performance.now();
       if (lastVideoTimeRef.current !== video.currentTime) {
         lastVideoTimeRef.current = video.currentTime;
 
         poseLandmarker.detectForVideo(video, startTimeMs, (result) => {
-          // Desenha landmarks
+          if (needsToSpawnCircle.current && canvas.width > 0 && canvas.height > 0) {
+            spawnCircle(result.landmarks);
+          }
+
           for (const landmark of result.landmarks) {
             const drawingUtils = new DrawingUtils(canvasCtx);
             drawingUtils.drawLandmarks(landmark, {
@@ -312,14 +356,28 @@ function JogoView({
                 { color: '#FFFFFF' }
             );
             
-            // Lógica de colisão
             if (circleRef.current && circleRef.current.visible) {
-              // Itera sobre todos os pontos do corpo
               for (const point of landmark) {
                 if (point && checkCollision(point, circleRef.current)) {
+                  explosionRef.current = {
+                    x: circleRef.current.x,
+                    y: circleRef.current.y,
+                    radius: circleRef.current.radius,
+                    timestamp: Date.now(),
+                  };
+
                   circleRef.current.visible = false;
                   setScore((prevScore) => prevScore + 1);
-                  needsToSpawnCircle.current = true;
+
+                   if (sphereTimeoutRef.current) {
+                    clearTimeout(sphereTimeoutRef.current);
+                  }
+
+                  // Wait for explosion to finish before spawning next circle
+                  setTimeout(() => {
+                    needsToSpawnCircle.current = true;
+                  }, 300);
+
                   break; 
                 }
               }
@@ -328,7 +386,6 @@ function JogoView({
         });
       }
       
-      // Desenha a esfera - MOVIDO PARA FORA DO CALLBACK
       if (sphereImage && circleRef.current && circleRef.current.visible) {
         const radius = circleRef.current.radius;
         canvasCtx.drawImage(
@@ -339,9 +396,27 @@ function JogoView({
           radius * 2
         );
       }
+      
+      if (explosionImage && explosionRef.current) {
+        const now = Date.now();
+        if (now - explosionRef.current.timestamp < 300) {
+            const radius = explosionRef.current.radius;
+            canvasCtx.drawImage(
+              explosionImage,
+              explosionRef.current.x - radius,
+              explosionRef.current.y - radius,
+              radius * 2,
+              radius * 2
+            );
+        } else {
+            explosionRef.current = null;
+        }
+      }
 
       canvasCtx.restore();
-      animationFrameId.current = window.requestAnimationFrame(predictWebcam);
+      if (webcamRunningRef.current) {
+        animationFrameId.current = window.requestAnimationFrame(predictWebcam);
+      }
     };
     
     const webcamRunningRef = { current: true };
@@ -353,27 +428,32 @@ function JogoView({
       if (animationFrameId.current) {
         window.cancelAnimationFrame(animationFrameId.current);
       }
+      if (sphereTimeoutRef.current) {
+        clearTimeout(sphereTimeoutRef.current);
+      }
       poseLandmarkerRef.current?.close();
     };
-  }, [cameraStream, setScore, sphereImage, isGameReady]);
+  }, [cameraStream, setScore, sphereImage, explosionImage]);
 
 
   useEffect(() => {
-    if (isGameReady && showCountdown) {
+    if ((sphereImage && explosionImage) && showCountdown) {
       if (countdown > 0) {
         const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
         return () => clearTimeout(timer);
       } else {
         setShowCountdown(false);
-        // Quando o contador acabar, sinalize para gerar o primeiro círculo
         needsToSpawnCircle.current = true;
       }
     }
-  }, [countdown, showCountdown, isGameReady]);
+  }, [countdown, showCountdown, sphereImage, explosionImage]);
 
 
   return (
-    <div className="relative h-[130svh] w-screen overflow-hidden bg-black">
+    <div className={cn(
+        "relative w-screen overflow-hidden bg-black",
+        isIos ? "h-[130svh]" : "h-[100svh]"
+      )}>
        <video
         ref={videoRef}
         autoPlay
@@ -502,6 +582,12 @@ export default function Page() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [score, setScore] = useState(0);
+  const [isIos, setIsIos] = useState(false);
+
+  useEffect(() => {
+    // This check runs only on the client, where navigator is available.
+    setIsIos(/iPad|iPhone|iPod/.test(navigator.userAgent));
+  }, []);
 
   const handleStartGame = () => {
     setScore(0); // Reseta a pontuação
@@ -543,7 +629,7 @@ export default function Page() {
       case 'configuracoes':
         return <ConfiguracoesView onStart={handleStartGame} />;
       case 'jogo':
-        return <JogoView cameraStream={cameraStream} score={score} setScore={setScore} />;
+        return <JogoView cameraStream={cameraStream} score={score} setScore={setScore} isIos={isIos} />;
       default:
         return <HomeView onStart={() => setCurrentView('configuracoes')} hasCameraPermission={hasCameraPermission}/>;
     }
