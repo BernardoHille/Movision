@@ -166,15 +166,28 @@ function JogoView({
   const lastVideoTimeRef = useRef(-1);
   const animationFrameId = useRef<number | null>(null);
   const circleRef = useRef<{ x: number; y: number; radius: number; visible: boolean } | null>(null);
+  const [sphereImage, setSphereImage] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = '/img/sphere.png';
+    img.onload = () => {
+      setSphereImage(img);
+    };
+  }, []);
 
   const spawnCircle = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const radius = 30;
+    
+    // Raio responsivo (8% da menor dimensão do canvas)
+    const radius = Math.min(canvas.width, canvas.height) * 0.08;
+    
     // Garante que o círculo não apareça muito perto das bordas
-    const padding = 50; 
-    const x = Math.random() * (canvas.width - radius * 2 - padding * 2) + radius + padding;
-    const y = Math.random() * (canvas.height - radius * 2 - padding * 2) + radius + padding;
+    const padding = radius + 10; 
+    const x = Math.random() * (canvas.width - padding * 2) + padding;
+    const y = Math.random() * (canvas.height - padding * 2) + padding;
+    
     circleRef.current = { x, y, radius, visible: true };
   };
   
@@ -275,13 +288,16 @@ function JogoView({
             }
           }
           
-          // Desenha o círculo
-          if (circleRef.current && circleRef.current.visible) {
-            canvasCtx.beginPath();
-            canvasCtx.arc(circleRef.current.x, circleRef.current.y, circleRef.current.radius, 0, 2 * Math.PI);
-            canvasCtx.fillStyle = 'red';
-            canvasCtx.fill();
-            canvasCtx.closePath();
+          // Desenha a esfera
+          if (sphereImage && circleRef.current && circleRef.current.visible) {
+            const radius = circleRef.current.radius;
+            canvasCtx.drawImage(
+              sphereImage,
+              circleRef.current.x - radius,
+              circleRef.current.y - radius,
+              radius * 2,
+              radius * 2
+            );
           }
 
           canvasCtx.restore();
@@ -301,7 +317,7 @@ function JogoView({
       }
       poseLandmarkerRef.current?.close();
     };
-  }, [cameraStream, setScore]);
+  }, [cameraStream, setScore, sphereImage]);
 
 
   useEffect(() => {
@@ -367,10 +383,10 @@ function JogoView({
           </div>
         </div>
       ) : (
-        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-start p-8">
-           <div className="rounded-lg bg-black/50 p-4">
-            <p className="font-headline text-4xl font-extrabold text-white">
-              PONTOS: {score}
+        <div className="pointer-events-none absolute inset-0 z-10 p-8">
+           <div className="absolute right-8 top-8 rounded-2xl bg-[#49416D] px-6 py-3 shadow-lg">
+            <p className="font-headline text-2xl font-bold text-white md:text-3xl">
+              Pontos: {score}
             </p>
           </div>
         </div>
