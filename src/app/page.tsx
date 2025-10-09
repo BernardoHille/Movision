@@ -180,8 +180,8 @@ function JogoView({
     const canvas = canvasRef.current;
     if (!canvas) return;
     
-    // Raio responsivo (8% da menor dimensão do canvas)
-    const radius = Math.min(canvas.width, canvas.height) * 0.08;
+    // Raio responsivo (12% da menor dimensão do canvas)
+    const radius = Math.min(canvas.width, canvas.height) * 0.12;
     
     // Garante que o círculo não apareça muito perto das bordas
     const padding = radius + 10; 
@@ -253,14 +253,14 @@ function JogoView({
       if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
       if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
       
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
       const startTimeMs = performance.now();
       if (lastVideoTimeRef.current !== video.currentTime) {
         lastVideoTimeRef.current = video.currentTime;
 
         poseLandmarker.detectForVideo(video, startTimeMs, (result) => {
-          canvasCtx.save();
-          canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-
           // Desenha landmarks
           for (const landmark of result.landmarks) {
             drawingUtils.drawLandmarks(landmark, {
@@ -287,22 +287,22 @@ function JogoView({
               }
             }
           }
-          
-          // Desenha a esfera
-          if (sphereImage && circleRef.current && circleRef.current.visible) {
-            const radius = circleRef.current.radius;
-            canvasCtx.drawImage(
-              sphereImage,
-              circleRef.current.x - radius,
-              circleRef.current.y - radius,
-              radius * 2,
-              radius * 2
-            );
-          }
-
-          canvasCtx.restore();
         });
       }
+      
+      // Desenha a esfera - MOVIDO PARA FORA DO CALLBACK
+      if (sphereImage && circleRef.current && circleRef.current.visible) {
+        const radius = circleRef.current.radius;
+        canvasCtx.drawImage(
+          sphereImage,
+          circleRef.current.x - radius,
+          circleRef.current.y - radius,
+          radius * 2,
+          radius * 2
+        );
+      }
+
+      canvasCtx.restore();
       animationFrameId.current = window.requestAnimationFrame(() => predictWebcam(drawingUtils));
     };
     
@@ -353,7 +353,7 @@ function JogoView({
       {showCountdown ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="flex w-full items-center justify-around gap-8 px-4">
-            <div className="relative w-1/3 h-52 lg:h-64 xl:h-72 2xl:h-96">
+            <div className="relative h-52 w-1/3 lg:h-64 xl:h-72 2xl:h-96">
               <Image
                 src="/img/aviso_posicionamento.png"
                 alt="Aviso de posicionamento"
@@ -369,7 +369,7 @@ function JogoView({
                 className="object-contain"
               />
             </div>
-            <div className="relative flex w-1/3 items-center justify-center h-52 lg:h-64 xl:h-72 2xl:h-96">
+            <div className="relative flex h-52 w-1/3 items-center justify-center lg:h-64 xl:h-72 2xl:h-96">
               <Image
                 src="/img/T_timer.png"
                 alt="Timer"
