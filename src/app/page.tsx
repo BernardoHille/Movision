@@ -3,8 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
-import { OrientationLock } from '@/components/orientation-lock';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { cn } from '@/lib/utils';
 import { Check } from 'lucide-react';
 import {
@@ -18,6 +17,74 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type View = 'home' | 'configuracoes' | 'jogo';
 type Option = 'posicao' | 'membros' | 'distancia';
+
+const SuperioresIconContent = memo(function SuperioresIconContent() {
+  return (
+    <>
+      <div className="flex flex-col items-center text-center">
+        <span>Superiores</span>
+        <span>(Braços)</span>
+      </div>
+      <Image src="/img/hand.svg" alt="Mãos" width={40} height={40} className="object-contain" />
+    </>
+  );
+});
+SuperioresIconContent.displayName = 'SuperioresIconContent';
+
+
+const InferioresIconContent = memo(function InferioresIconContent() {
+  return (
+    <>
+      <div className="flex flex-col items-center text-center">
+        <span>Inferiores</span>
+        <span>(Pernas)</span>
+      </div>
+      <Image src="/img/feet.svg" alt="Pés" width={40} height={40} className="object-contain" />
+    </>
+  );
+});
+InferioresIconContent.displayName = 'InferioresIconContent';
+
+const SelectionButton = memo(({
+  option,
+  value,
+  children,
+  className,
+  selections,
+  handleSelection,
+}: {
+  option: Option;
+  value: string;
+  children: React.ReactNode;
+  className?: string;
+  selections: { posicao: string; membros: string; distancia: string };
+  handleSelection: (option: Option, value: string) => void;
+}) => {
+  const isSelected = selections[option] === value;
+  return (
+    <Button
+      variant="outline"
+      className={cn(
+        'relative w-full flex-1 justify-center rounded-xl border-4 border-transparent bg-card text-lg font-bold text-[#49416D] shadow-lg hover:bg-card/80 sm:text-xl',
+        'whitespace-normal break-words py-2',
+        'h-full',
+        isSelected && 'border-primary ring-4 ring-primary/50',
+        'flex items-center gap-4 px-4',
+        className
+      )}
+      onClick={() => handleSelection(option, value)}
+    >
+      {children}
+      {isSelected && (
+        <div className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-primary">
+          <Check className="h-6 w-6 text-primary-foreground" />
+        </div>
+      )}
+    </Button>
+  );
+});
+SelectionButton.displayName = 'SelectionButton';
+
 
 function ConfiguracoesView({ onStart }: { onStart: () => void }) {
   const [selections, setSelections] = useState({
@@ -35,53 +102,18 @@ function ConfiguracoesView({ onStart }: { onStart: () => void }) {
     selections.membros !== '' &&
     selections.distancia !== '';
 
-  const SelectionButton = ({
-    option,
-    value,
-    children,
-    className,
-  }: {
-    option: Option;
-    value: string;
-    children: React.ReactNode;
-    className?: string;
-  }) => {
-    const isSelected = selections[option] === value;
-    return (
-      <Button
-        variant="outline"
-        className={cn(
-          'relative w-full flex-1 justify-center rounded-xl border-4 border-transparent bg-card text-lg font-bold text-[#49416D] shadow-lg hover:bg-card/80 sm:text-xl',
-          'whitespace-normal break-words py-2',
-          'h-full',
-          isSelected && 'border-primary ring-4 ring-primary/50',
-          'flex items-center gap-4 px-4',
-          className
-        )}
-        onClick={() => handleSelection(option, value)}
-      >
-        {children}
-        {isSelected && (
-          <div className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-primary">
-            <Check className="h-6 w-6 text-primary-foreground" />
-          </div>
-        )}
-      </Button>
-    );
-  };
-
   return (
-    <main className="flex min-h-[100svh] flex-col justify-center bg-[#49416D] p-4">
+    <main className="flex min-h-[100svh] flex-col justify-center bg-[#49416D] p-4 pb-2">
       <div className="flex w-full flex-col items-center justify-center">
         <div className="grid w-full max-w-6xl grid-cols-1 gap-2 sm:grid-cols-3 md:gap-2">
           {/* Posição */}
           <div className="flex flex-col items-center gap-2 sm:gap-4">
             <h2 className="mb-1 text-xl font-bold text-white sm:text-2xl md:text-3xl">Posição</h2>
             <div className="flex w-full flex-1 flex-col gap-3 sm:gap-4">
-              <SelectionButton option="posicao" value="em_pe">
+              <SelectionButton option="posicao" value="em_pe" selections={selections} handleSelection={handleSelection}>
                 Em pé
               </SelectionButton>
-              <SelectionButton option="posicao" value="sentado">
+              <SelectionButton option="posicao" value="sentado" selections={selections} handleSelection={handleSelection}>
                 Sentado
               </SelectionButton>
             </div>
@@ -95,23 +127,19 @@ function ConfiguracoesView({ onStart }: { onStart: () => void }) {
                 option="membros"
                 value="superiores"
                 className="flex-wrap"
+                selections={selections} 
+                handleSelection={handleSelection}
               >
-                <div className="flex flex-col items-center text-center">
-                  <span>Superiores</span>
-                  <span>(Braços)</span>
-                </div>
-                <Image src="/img/hand.svg" alt="Mãos" width={40} height={40} className="object-contain" />
+                <SuperioresIconContent />
               </SelectionButton>
               <SelectionButton
                 option="membros"
                 value="inferiores"
                 className="flex-wrap"
+                selections={selections}
+                handleSelection={handleSelection}
               >
-                <div className="flex flex-col items-center text-center">
-                  <span>Inferiores</span>
-                  <span>(Pernas)</span>
-                </div>
-                <Image src="/img/feet.svg" alt="Pés" width={40} height={40} className="object-contain" />
+                <InferioresIconContent />
               </SelectionButton>
             </div>
           </div>
@@ -120,20 +148,20 @@ function ConfiguracoesView({ onStart }: { onStart: () => void }) {
           <div className="flex flex-col items-center gap-2 sm:gap-4">
             <h2 className="mb-1 text-xl font-bold text-white sm:text-2xl md:text-3xl">Distância</h2>
             <div className="flex w-full flex-1 flex-col gap-3 sm:gap-4">
-              <SelectionButton option="distancia" value="nivel_1">
+              <SelectionButton option="distancia" value="nivel_1" selections={selections} handleSelection={handleSelection}>
                 Nível 1
               </SelectionButton>
-              <SelectionButton option="distancia" value="nivel_2">
+              <SelectionButton option="distancia" value="nivel_2" selections={selections} handleSelection={handleSelection}>
                 Nível 2
               </SelectionButton>
-              <SelectionButton option="distancia" value="nivel_3">
+              <SelectionButton option="distancia" value="nivel_3" selections={selections} handleSelection={handleSelection}>
                 Nível 3
               </SelectionButton>
             </div>
           </div>
         </div>
       </div>
-      <div className="mt-4 flex justify-center pb-2 pt-2">
+      <div className="mt-8 flex justify-center pt-2">
         <Button
           size="lg"
           className="h-16 w-full max-w-md rounded-2xl bg-primary text-xl font-extrabold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 disabled:bg-gray-400 disabled:opacity-50 sm:h-20 sm:text-2xl"
@@ -167,35 +195,41 @@ function JogoView({
   const animationFrameId = useRef<number | null>(null);
   const circleRef = useRef<{ x: number; y: number; radius: number; visible: boolean } | null>(null);
   const [sphereImage, setSphereImage] = useState<HTMLImageElement | null>(null);
+  const [isGameReady, setIsGameReady] = useState(false);
+  const needsToSpawnCircle = useRef(false);
 
   useEffect(() => {
     const img = new window.Image();
     img.src = '/img/sphere.png';
     img.onload = () => {
       setSphereImage(img);
+      setIsGameReady(true);
     };
   }, []);
-
-  const spawnCircle = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    // Raio responsivo (12% da menor dimensão do canvas)
-    const radius = Math.min(canvas.width, canvas.height) * 0.12;
-    
-    // Garante que o círculo não apareça muito perto das bordas
-    const padding = radius + 10; 
-    const x = Math.random() * (canvas.width - padding * 2) + padding;
-    const y = Math.random() * (canvas.height - padding * 2) + padding;
-    
-    circleRef.current = { x, y, radius, visible: true };
-  };
   
   useEffect(() => {
+    if (!isGameReady) return;
+
     const video = videoRef.current;
     if (!video || !cameraStream) return;
 
     video.srcObject = cameraStream;
+    
+    const spawnCircle = () => {
+      const canvas = canvasRef.current;
+      if (!canvas || canvas.width === 0 || canvas.height === 0) return;
+  
+      // Raio responsivo (12% da menor dimensão do canvas)
+      const radius = Math.min(canvas.width, canvas.height) * 0.12;
+      
+      // Garante que o círculo não apareça muito perto das bordas
+      const padding = radius + 10; 
+      const x = Math.random() * (canvas.width - padding * 2) + padding;
+      const y = Math.random() * (canvas.height - padding * 2) + padding;
+      
+      circleRef.current = { x, y, radius, visible: true };
+      needsToSpawnCircle.current = false;
+    };
     
     const startMediaPipe = async () => {
       const canvas = canvasRef.current;
@@ -217,7 +251,7 @@ function JogoView({
           runningMode: 'VIDEO',
           numPoses: 1, // Apenas 1 jogador
         });
-        predictWebcam(drawingUtils);
+        predictWebcam();
       } catch (e) {
         console.error("Erro ao criar PoseLandmarker", e);
       }
@@ -230,15 +264,15 @@ function JogoView({
       const distance = Math.sqrt(dx * dx + dy * dy);
       return distance < currentCircle.radius;
     };
-
-    const predictWebcam = (drawingUtils: DrawingUtils) => {
+    
+    const predictWebcam = () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const poseLandmarker = poseLandmarkerRef.current;
 
       if (!video || !canvas || !poseLandmarker || !canvas.getContext('2d')) {
          if (webcamRunningRef.current) {
-            animationFrameId.current = window.requestAnimationFrame(() => predictWebcam(drawingUtils));
+            animationFrameId.current = window.requestAnimationFrame(predictWebcam);
          }
          return;
       }
@@ -246,7 +280,7 @@ function JogoView({
       const canvasCtx = canvas.getContext('2d')!;
       
       if (video.paused || video.ended || video.readyState < 2) {
-        animationFrameId.current = window.requestAnimationFrame(() => predictWebcam(drawingUtils));
+        animationFrameId.current = window.requestAnimationFrame(predictWebcam);
         return;
       }
       
@@ -256,6 +290,10 @@ function JogoView({
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
 
+      if (needsToSpawnCircle.current && canvas.width > 0 && canvas.height > 0) {
+        spawnCircle();
+      }
+
       const startTimeMs = performance.now();
       if (lastVideoTimeRef.current !== video.currentTime) {
         lastVideoTimeRef.current = video.currentTime;
@@ -263,6 +301,7 @@ function JogoView({
         poseLandmarker.detectForVideo(video, startTimeMs, (result) => {
           // Desenha landmarks
           for (const landmark of result.landmarks) {
+            const drawingUtils = new DrawingUtils(canvasCtx);
             drawingUtils.drawLandmarks(landmark, {
               color: '#FFFFFF',
               radius: (data) => DrawingUtils.lerp(data.from!.z!, -0.15, 0.1, 5, 1),
@@ -280,8 +319,7 @@ function JogoView({
                 if (point && checkCollision(point, circleRef.current)) {
                   circleRef.current.visible = false;
                   setScore((prevScore) => prevScore + 1);
-                  // Spawn a new circle after a delay
-                  setTimeout(spawnCircle, 1000); 
+                  needsToSpawnCircle.current = true;
                   break; 
                 }
               }
@@ -303,7 +341,7 @@ function JogoView({
       }
 
       canvasCtx.restore();
-      animationFrameId.current = window.requestAnimationFrame(() => predictWebcam(drawingUtils));
+      animationFrameId.current = window.requestAnimationFrame(predictWebcam);
     };
     
     const webcamRunningRef = { current: true };
@@ -317,25 +355,25 @@ function JogoView({
       }
       poseLandmarkerRef.current?.close();
     };
-  }, [cameraStream, setScore, sphereImage]);
+  }, [cameraStream, setScore, sphereImage, isGameReady]);
 
 
   useEffect(() => {
-    if (showCountdown) {
+    if (isGameReady && showCountdown) {
       if (countdown > 0) {
         const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
         return () => clearTimeout(timer);
       } else {
         setShowCountdown(false);
-        // Quando o contador acabar, gere o primeiro círculo
-        spawnCircle();
+        // Quando o contador acabar, sinalize para gerar o primeiro círculo
+        needsToSpawnCircle.current = true;
       }
     }
-  }, [countdown, showCountdown]);
+  }, [countdown, showCountdown, isGameReady]);
 
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black">
+    <div className="relative h-[130svh] w-screen overflow-hidden bg-black">
        <video
         ref={videoRef}
         autoPlay
@@ -376,7 +414,7 @@ function JogoView({
                 fill
                 className="object-contain"
               />
-              <p className="font-headline absolute font-extrabold leading-none text-white text-5xl sm:text-6xl md:text-7xl lg:text-8xl">
+              <p className="font-headline absolute font-extrabold leading-none text-white text-6xl sm:text-7xl md:text-8xl">
                 {countdown}
               </p>
             </div>
@@ -409,7 +447,7 @@ function JogoView({
 
 function HomeView({ onStart, hasCameraPermission }: { onStart: () => void, hasCameraPermission: boolean | null }) {
   return (
-    <main className="flex h-[100svh] w-full flex-row">
+    <main className="flex h-[100svh] w-full flex-row pb-2">
       {/* Left Panel */}
       <div className="flex w-1/2 flex-col items-center justify-center bg-card p-4 md:p-8">
         <Logo className="h-64 w-64 md:h-64 md:w-64 lg:h-96 lg:w-96" />
@@ -513,7 +551,6 @@ export default function Page() {
 
   return (
     <>
-      <OrientationLock />
       {renderView()}
     </>
   );
