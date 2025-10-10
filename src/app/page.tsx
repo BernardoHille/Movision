@@ -17,6 +17,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type View = 'home' | 'configuracoes' | 'jogo';
 type Option = 'posicao' | 'membros' | 'distancia';
+type Selections = {
+  posicao: string;
+  membros: string;
+  distancia: string;
+};
 
 const SuperioresIconContent = memo(function SuperioresIconContent() {
   return (
@@ -57,7 +62,7 @@ const SelectionButton = memo(({
   value: string;
   children: React.ReactNode;
   className?: string;
-  selections: { posicao: string; membros: string; distancia: string };
+  selections: Selections;
   handleSelection: (option: Option, value: string) => void;
 }) => {
   const isSelected = selections[option] === value;
@@ -86,8 +91,8 @@ const SelectionButton = memo(({
 SelectionButton.displayName = 'SelectionButton';
 
 
-function ConfiguracoesView({ onStart }: { onStart: () => void }) {
-  const [selections, setSelections] = useState({
+function ConfiguracoesView({ onStart }: { onStart: (selections: Selections) => void }) {
+  const [selections, setSelections] = useState<Selections>({
     posicao: '',
     membros: '',
     distancia: '',
@@ -166,7 +171,7 @@ function ConfiguracoesView({ onStart }: { onStart: () => void }) {
           size="lg"
           className="h-16 w-full max-w-md rounded-2xl bg-primary text-xl font-extrabold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 disabled:bg-gray-400 disabled:opacity-50 sm:h-20 sm:text-2xl"
           disabled={!isComplete}
-          onClick={onStart}
+          onClick={() => onStart(selections)}
         >
           Iniciar
         </Button>
@@ -181,11 +186,13 @@ function JogoView({
   score,
   setScore,
   isIos,
+  gameConfig,
 }: { 
   cameraStream: MediaStream | null;
   score: number;
   setScore: React.Dispatch<React.SetStateAction<number>>;
   isIos: boolean;
+  gameConfig: Selections;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -195,50 +202,91 @@ function JogoView({
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
   const lastVideoTimeRef = useRef(-1);
   const animationFrameId = useRef<number | null>(null);
-  const circleRef = useRef<{ id: number; x: number; y: number; radius: number; visible: boolean } | null>(null);
-  const [sphereImage, setSphereImage] = useState<HTMLImageElement | null>(null);
-  const [explosionImage, setExplosionImage] = useState<HTMLImageElement | null>(null);
-  const explosionRef = useRef<{ x: number; y: number; radius: number, timestamp: number } | null>(null);
+  const circleRef = useRef<{ id: number; x: number; y: number; radius: number; visible: boolean; type: number; image: HTMLImageElement; } | null>(null);
+  
+  const [sphereImages, setSphereImages] = useState<HTMLImageElement[]>([]);
+  const [explosionImages, setExplosionImages] = useState<HTMLImageElement[]>([]);
+  
+  const explosionRef = useRef<{ x: number; y: number; radius: number, timestamp: number; image: HTMLImageElement; } | null>(null);
   const needsToSpawnCircle = useRef(false);
   const sphereTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const sphereImg = new window.Image();
-    sphereImg.src = '/img/sphere.png';
-    sphereImg.onload = () => {
-      setSphereImage(sphereImg);
+    const spherePaths = ['/img/sphere.png', '/img/sphere-v2.png', '/img/sphere-v3.png'];
+    const explosionPaths = ['/img/explode.png', '/img/explode-v2.png', '/img/explode-v3.png'];
+    
+    const loadedSphereImages: HTMLImageElement[] = [];
+    const loadedExplosionImages: HTMLImageElement[] = [];
+
+    let imagesToLoad = spherePaths.length + explosionPaths.length;
+    
+    const onImageLoad = () => {
+      imagesToLoad--;
+      if (imagesToLoad === 0) {
+        setSphereImages(loadedSphereImages);
+        setExplosionImages(loadedExplosionImages);
+      }
     };
 
-    const explodeImg = new window.Image();
-    explodeImg.src = '/img/explode.png';
-    explodeImg.onload = () => {
-        setExplosionImage(explodeImg);
-    };
+    spherePaths.forEach(path => {
+        const img = new window.Image();
+        img.src = path;
+        img.onload = onImageLoad;
+        loadedSphereImages.push(img);
+    });
+
+    explosionPaths.forEach(path => {
+        const img = new window.Image();
+        img.src = path;
+        img.onload = onImageLoad;
+        loadedExplosionImages.push(img);
+    });
   }, []);
   
   useEffect(() => {
-    if (!sphereImage || !explosionImage) return;
+    if (sphereImages.length === 0 || explosionImages.length === 0) return;
 
     const video = videoRef.current;
     if (!video || !cameraStream) return;
 
     video.srcObject = cameraStream;
     
-    const spawnCircle = (landmarks: any[]) => {
+    const spawnCircle = (landmarks?: any[]) => {
         const canvas = canvasRef.current;
         if (!canvas || canvas.width === 0 || canvas.height === 0) return;
     
         const radius = Math.min(canvas.width, canvas.height) * 0.12;
-        const padding = radius + 10;
-        const collisionRadius = radius * 2.5; // Safety distance from player
         let x: number, y: number;
+
+        const collisionRadius = radius * 2.5; // Safety distance from player
         let isColliding = true;
         let attempts = 0;
     
+        let spawnRangePercentage;
+        switch (gameConfig.distancia) {
+          case 'nivel_1':
+            spawnRangePercentage = 0.2;
+            break;
+          case 'nivel_2':
+            spawnRangePercentage = 0.4;
+            break;
+          case 'nivel_3':
+            spawnRangePercentage = 0.6;
+            break;
+          default:
+            spawnRangePercentage = 0.2;
+        }
+
         while (isColliding && attempts < 10) {
             isColliding = false;
-            x = Math.random() * (canvas.width - padding * 2) + padding;
-            y = Math.random() * (canvas.height - padding * 2) + padding;
+            
+            const spawnRangeWidth = canvas.width * spawnRangePercentage;
+            const spawnRangeStart = (canvas.width - spawnRangeWidth) / 2;
+            x = Math.random() * spawnRangeWidth + spawnRangeStart;
+
+            const spawnRangeHeight = canvas.height * 0.6;
+            const spawnRangeYStart = (canvas.height - spawnRangeHeight) / 2;
+            y = Math.random() * spawnRangeHeight + spawnRangeYStart;
     
             if (landmarks) {
                 for (const landmark of landmarks) {
@@ -256,14 +304,23 @@ function JogoView({
             attempts++;
         }
         
-        // Fallback to random position if it can't find a free spot
         if (isColliding) {
-            x = Math.random() * (canvas.width - padding * 2) + padding;
-            y = Math.random() * (canvas.height - padding * 2) + padding;
+            // Fallback to a random position within the range if a free spot is not found
+            const spawnRangeWidth = canvas.width * spawnRangePercentage;
+            const spawnRangeStart = (canvas.width - spawnRangeWidth) / 2;
+            x = Math.random() * spawnRangeWidth + spawnRangeStart;
+            
+            const spawnRangeHeight = canvas.height * 0.6;
+            const spawnRangeYStart = (canvas.height - spawnRangeHeight) / 2;
+            y = Math.random() * spawnRangeHeight + spawnRangeYStart;
         }
+
+
+        const sphereType = Math.floor(Math.random() * sphereImages.length);
+        const sphereImage = sphereImages[sphereType];
     
         const newCircleId = Date.now();
-        circleRef.current = { id: newCircleId, x: x!, y: y!, radius, visible: true };
+        circleRef.current = { id: newCircleId, x: x!, y: y!, radius, visible: true, type: sphereType, image: sphereImage };
         needsToSpawnCircle.current = false;
     
         if (sphereTimeoutRef.current) {
@@ -359,11 +416,14 @@ function JogoView({
             if (circleRef.current && circleRef.current.visible) {
               for (const point of landmark) {
                 if (point && checkCollision(point, circleRef.current)) {
+                  const currentCircle = circleRef.current;
+                  const explosionImage = explosionImages[currentCircle.type];
                   explosionRef.current = {
-                    x: circleRef.current.x,
-                    y: circleRef.current.y,
-                    radius: circleRef.current.radius,
+                    x: currentCircle.x,
+                    y: currentCircle.y,
+                    radius: currentCircle.radius,
                     timestamp: Date.now(),
+                    image: explosionImage,
                   };
 
                   circleRef.current.visible = false;
@@ -373,7 +433,6 @@ function JogoView({
                     clearTimeout(sphereTimeoutRef.current);
                   }
 
-                  // Wait for explosion to finish before spawning next circle
                   setTimeout(() => {
                     needsToSpawnCircle.current = true;
                   }, 300);
@@ -386,10 +445,10 @@ function JogoView({
         });
       }
       
-      if (sphereImage && circleRef.current && circleRef.current.visible) {
+      if (circleRef.current && circleRef.current.visible) {
         const radius = circleRef.current.radius;
         canvasCtx.drawImage(
-          sphereImage,
+          circleRef.current.image,
           circleRef.current.x - radius,
           circleRef.current.y - radius,
           radius * 2,
@@ -397,12 +456,12 @@ function JogoView({
         );
       }
       
-      if (explosionImage && explosionRef.current) {
+      if (explosionRef.current) {
         const now = Date.now();
         if (now - explosionRef.current.timestamp < 300) {
             const radius = explosionRef.current.radius;
             canvasCtx.drawImage(
-              explosionImage,
+              explosionRef.current.image,
               explosionRef.current.x - radius,
               explosionRef.current.y - radius,
               radius * 2,
@@ -433,11 +492,11 @@ function JogoView({
       }
       poseLandmarkerRef.current?.close();
     };
-  }, [cameraStream, setScore, sphereImage, explosionImage]);
+  }, [cameraStream, setScore, sphereImages, explosionImages, gameConfig]);
 
 
   useEffect(() => {
-    if ((sphereImage && explosionImage) && showCountdown) {
+    if ((sphereImages.length > 0 && explosionImages.length > 0) && showCountdown) {
       if (countdown > 0) {
         const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
         return () => clearTimeout(timer);
@@ -446,7 +505,7 @@ function JogoView({
         needsToSpawnCircle.current = true;
       }
     }
-  }, [countdown, showCountdown, sphereImage, explosionImage]);
+  }, [countdown, showCountdown, sphereImages, explosionImages]);
 
 
   return (
@@ -583,13 +642,19 @@ export default function Page() {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [score, setScore] = useState(0);
   const [isIos, setIsIos] = useState(false);
+  const [gameConfig, setGameConfig] = useState<Selections>({
+    posicao: '',
+    membros: '',
+    distancia: '',
+  });
 
   useEffect(() => {
     // This check runs only on the client, where navigator is available.
     setIsIos(/iPad|iPhone|iPod/.test(navigator.userAgent));
   }, []);
 
-  const handleStartGame = () => {
+  const handleStartGame = (selections: Selections) => {
+    setGameConfig(selections);
     setScore(0); // Reseta a pontuação
     setCurrentView('jogo');
   };
@@ -629,7 +694,7 @@ export default function Page() {
       case 'configuracoes':
         return <ConfiguracoesView onStart={handleStartGame} />;
       case 'jogo':
-        return <JogoView cameraStream={cameraStream} score={score} setScore={setScore} isIos={isIos} />;
+        return <JogoView cameraStream={cameraStream} score={score} setScore={setScore} isIos={isIos} gameConfig={gameConfig} />;
       default:
         return <HomeView onStart={() => setCurrentView('configuracoes')} hasCameraPermission={hasCameraPermission}/>;
     }
