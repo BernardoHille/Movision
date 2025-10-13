@@ -199,7 +199,7 @@ function JogoView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [countdown, setCountdown] = useState(10);
   const [showCountdown, setShowCountdown] = useState(true);
-  const [initialGameTime] = useState(10);
+  const [initialGameTime] = useState(120);
   const [gameTime, setGameTime] = useState(initialGameTime);
   const scoreRef = useRef(0);
   const scoreDisplayRef = useRef<HTMLParagraphElement>(null);
@@ -317,8 +317,8 @@ function JogoView({
         let spawnRangeHeight, spawnRangeYStart;
 
         if (gameConfig.membros === 'inferiores') {
-            spawnRangeHeight = canvas.height * 0.7; // From 30% to 100% of height
-            spawnRangeYStart = canvas.height * 0.3;
+            spawnRangeYStart = canvas.height * 0.2;
+            spawnRangeHeight = canvas.height * 0.3;
         } else {
             spawnRangeHeight = canvas.height * 0.6;
             spawnRangeYStart = (canvas.height - spawnRangeHeight) / 2;
@@ -627,15 +627,20 @@ function JogoView({
         </div>
       ) : (
         <div className="pointer-events-none absolute inset-0 z-10 p-8">
-           <div className="absolute left-8 top-8 h-32 w-32">
-             <div
-                className="absolute left-1/2 top-1/2 h-[89%] w-[89%] -translate-x-1/2 -translate-y-1/2 rounded-full"
-                style={{
-                  background: `conic-gradient(hsl(183 29% 52%) ${angle}deg, transparent ${angle}deg)`,
-                }}
-              />
-              <Image src="/img/game_timer.png" alt="Timer" fill className="object-contain" />
-            </div>
+           <div
+              className="absolute left-8 top-8 h-32 w-32 rounded-full"
+              style={{
+                background: `conic-gradient(hsl(var(--primary)) ${angle}deg, transparent ${angle}deg)`,
+                transform: 'translateY(4px)',
+                width: 'calc(8rem - 8px)',
+                height: 'calc(8rem - 8px)',
+                left: 'calc(2rem + 4px)',
+                top: 'calc(2rem + 4px)'
+              }}
+            />
+          <div className="absolute left-8 top-8 h-32 w-32">
+            <Image src="/img/game_timer.png" alt="Timer" fill className="object-contain" />
+          </div>
            <div className="absolute right-8 top-8 flex flex-col gap-4">
             <div className="rounded-2xl bg-[#49416D] px-6 py-3 text-center shadow-lg">
               <p ref={scoreDisplayRef} className="font-headline text-2xl font-bold text-white md:text-3xl">
