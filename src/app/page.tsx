@@ -15,7 +15,7 @@ import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-type View = 'home' | 'configuracoes' | 'jogo';
+type View = 'home' | 'configuracoes' | 'jogo' | 'final';
 type Option = 'posicao' | 'membros' | 'distancia';
 type Selections = {
   posicao: string;
@@ -91,7 +91,7 @@ const SelectionButton = memo(({
 SelectionButton.displayName = 'SelectionButton';
 
 
-function ConfiguracoesView({ onStart }: { onStart: (selections: Selections) => void }) {
+function ConfiguracoesView({ onStart, isIos }: { onStart: (selections: Selections) => void; isIos: boolean; }) {
   const [selections, setSelections] = useState<Selections>({
     posicao: '',
     membros: '',
@@ -108,7 +108,10 @@ function ConfiguracoesView({ onStart }: { onStart: (selections: Selections) => v
     selections.distancia !== '';
 
   return (
-    <main className="flex min-h-[100svh] flex-col justify-center bg-[#49416D] p-4 pb-2">
+    <main className={cn(
+        "flex flex-col justify-center bg-[#49416D] p-4 pb-2",
+        isIos ? "min-h-[130svh]" : "min-h-[100svh]"
+      )}>
       <div className="flex w-full flex-col items-center justify-center">
         <div className="grid w-full max-w-6xl grid-cols-1 gap-2 sm:grid-cols-3 md:gap-2">
           {/* Posição */}
@@ -183,21 +186,23 @@ function ConfiguracoesView({ onStart }: { onStart: (selections: Selections) => v
 
 function JogoView({ 
   cameraStream,
-  score,
-  setScore,
   isIos,
   gameConfig,
+  onGameEnd,
 }: { 
   cameraStream: MediaStream | null;
-  score: number;
-  setScore: React.Dispatch<React.SetStateAction<number>>;
   isIos: boolean;
   gameConfig: Selections;
+  onGameEnd: (finalScore: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [countdown, setCountdown] = useState(10);
   const [showCountdown, setShowCountdown] = useState(true);
+  const [initialGameTime] = useState(10);
+  const [gameTime, setGameTime] = useState(initialGameTime);
+  const scoreRef = useRef(0);
+  const scoreDisplayRef = useRef<HTMLParagraphElement>(null);
   
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
   const lastVideoTimeRef = useRef(-1);
@@ -210,6 +215,18 @@ function JogoView({
   const explosionRef = useRef<{ x: number; y: number; radius: number, timestamp: number; image: HTMLImageElement; } | null>(null);
   const needsToSpawnCircle = useRef(false);
   const sphereTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!showCountdown && gameTime > 0) {
+      const timer = setInterval(() => {
+        setGameTime((prevTime) => prevTime - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    } else if (gameTime === 0) {
+      onGameEnd(scoreRef.current);
+    }
+  }, [showCountdown, gameTime, onGameEnd]);
+
 
   useEffect(() => {
     const spherePaths = ['/img/sphere.png', '/img/sphere-v2.png', '/img/sphere-v3.png'];
@@ -254,39 +271,75 @@ function JogoView({
     const spawnCircle = (landmarks?: any[]) => {
         const canvas = canvasRef.current;
         if (!canvas || canvas.width === 0 || canvas.height === 0) return;
-    
+
         const radius = Math.min(canvas.width, canvas.height) * 0.12;
         let x: number, y: number;
 
         const collisionRadius = radius * 2.5; // Safety distance from player
         let isColliding = true;
         let attempts = 0;
+        
+        // Define UI exclusion zones (rem values converted approximately)
+        const rem = 16; // Assuming 1rem = 16px
+        const timerSize = 8 * rem; // h-32 w-32 -> 8rem
+        const padding = 2 * rem; // p-8 -> 2rem
+        const scoreBoxWidth = 10 * rem; // approx width
+        const scoreBoxHeight = 5 * rem; // approx height
+
+        const timerZone = {
+          x1: padding,
+          y1: padding,
+          x2: padding + timerSize,
+          y2: padding + timerSize,
+        };
+        const scoreZone = {
+          x1: canvas.width - padding - scoreBoxWidth,
+          y1: padding,
+          x2: canvas.width - padding,
+          y2: padding + scoreBoxHeight,
+        };
     
         let spawnRangePercentage;
         switch (gameConfig.distancia) {
           case 'nivel_1':
-            spawnRangePercentage = 0.2;
+            spawnRangePercentage = 0.25;
             break;
           case 'nivel_2':
-            spawnRangePercentage = 0.4;
+            spawnRangePercentage = 0.50;
             break;
           case 'nivel_3':
-            spawnRangePercentage = 0.6;
+            spawnRangePercentage = 0.75;
             break;
           default:
-            spawnRangePercentage = 0.2;
+            spawnRangePercentage = 0.25;
+        }
+        
+        let spawnRangeHeight, spawnRangeYStart;
+
+        if (gameConfig.membros === 'inferiores') {
+            spawnRangeHeight = canvas.height * 0.7; // From 30% to 100% of height
+            spawnRangeYStart = canvas.height * 0.3;
+        } else {
+            spawnRangeHeight = canvas.height * 0.6;
+            spawnRangeYStart = (canvas.height - spawnRangeHeight) / 2;
         }
 
-        while (isColliding && attempts < 10) {
+        while (isColliding && attempts < 20) {
             isColliding = false;
+            attempts++;
             
             const spawnRangeWidth = canvas.width * spawnRangePercentage;
             const spawnRangeStart = (canvas.width - spawnRangeWidth) / 2;
             x = Math.random() * spawnRangeWidth + spawnRangeStart;
 
-            const spawnRangeHeight = canvas.height * 0.6;
-            const spawnRangeYStart = (canvas.height - spawnRangeHeight) / 2;
             y = Math.random() * spawnRangeHeight + spawnRangeYStart;
+
+            // Check collision with UI zones
+            if ((x > timerZone.x1 - radius && x < timerZone.x2 + radius && y > timerZone.y1 - radius && y < timerZone.y2 + radius) ||
+                (x > scoreZone.x1 - radius && x < scoreZone.x2 + radius && y > scoreZone.y1 - radius && y < scoreZone.y2 + radius)) {
+                isColliding = true;
+                continue; // Try a new position
+            }
     
             if (landmarks) {
                 for (const landmark of landmarks) {
@@ -301,17 +354,12 @@ function JogoView({
                     if (isColliding) break;
                 }
             }
-            attempts++;
         }
         
-        if (isColliding) {
-            // Fallback to a random position within the range if a free spot is not found
+        if (isColliding) { // Fallback if too many attempts
             const spawnRangeWidth = canvas.width * spawnRangePercentage;
             const spawnRangeStart = (canvas.width - spawnRangeWidth) / 2;
             x = Math.random() * spawnRangeWidth + spawnRangeStart;
-            
-            const spawnRangeHeight = canvas.height * 0.6;
-            const spawnRangeYStart = (canvas.height - spawnRangeHeight) / 2;
             y = Math.random() * spawnRangeHeight + spawnRangeYStart;
         }
 
@@ -414,7 +462,19 @@ function JogoView({
             );
             
             if (circleRef.current && circleRef.current.visible) {
-              for (const point of landmark) {
+              const handsLandmarks = [15, 16, 17, 18, 19, 20, 21, 22];
+              const feetLandmarks = [27, 28, 29, 30, 31, 32];
+              
+              let landmarksToCheck: number[] = [];
+
+              if (gameConfig.membros === 'superiores') {
+                landmarksToCheck = handsLandmarks;
+              } else if (gameConfig.membros === 'inferiores') {
+                landmarksToCheck = feetLandmarks;
+              }
+
+              for (const index of landmarksToCheck) {
+                const point = landmark[index];
                 if (point && checkCollision(point, circleRef.current)) {
                   const currentCircle = circleRef.current;
                   const explosionImage = explosionImages[currentCircle.type];
@@ -427,7 +487,11 @@ function JogoView({
                   };
 
                   circleRef.current.visible = false;
-                  setScore((prevScore) => prevScore + 1);
+                  scoreRef.current += 1;
+                  if (scoreDisplayRef.current) {
+                    scoreDisplayRef.current.innerText = `Pontos: ${scoreRef.current}`;
+                  }
+
 
                    if (sphereTimeoutRef.current) {
                     clearTimeout(sphereTimeoutRef.current);
@@ -492,7 +556,7 @@ function JogoView({
       }
       poseLandmarkerRef.current?.close();
     };
-  }, [cameraStream, setScore, sphereImages, explosionImages, gameConfig]);
+  }, [cameraStream, sphereImages, explosionImages, gameConfig, onGameEnd]);
 
 
   useEffect(() => {
@@ -507,6 +571,8 @@ function JogoView({
     }
   }, [countdown, showCountdown, sphereImages, explosionImages]);
 
+  const timePercentage = gameTime / initialGameTime;
+  const angle = timePercentage * 360;
 
   return (
     <div className={cn(
@@ -540,7 +606,7 @@ function JogoView({
             </div>
              <div className="relative h-screen w-1/3">
               <Image
-                src="/img/icon_position.png"
+                src={gameConfig.posicao === 'sentado' ? '/img/position_sentado.png' : '/img/icon_position.png'}
                 alt="Posicionamento de exemplo"
                 fill
                 className="object-contain"
@@ -561,10 +627,21 @@ function JogoView({
         </div>
       ) : (
         <div className="pointer-events-none absolute inset-0 z-10 p-8">
-           <div className="absolute right-8 top-8 rounded-2xl bg-[#49416D] px-6 py-3 shadow-lg">
-            <p className="font-headline text-2xl font-bold text-white md:text-3xl">
-              Pontos: {score}
-            </p>
+           <div className="absolute left-8 top-8 h-32 w-32">
+             <div
+                className="absolute left-1/2 top-1/2 h-[89%] w-[89%] -translate-x-1/2 -translate-y-1/2 rounded-full"
+                style={{
+                  background: `conic-gradient(hsl(183 29% 52%) ${angle}deg, transparent ${angle}deg)`,
+                }}
+              />
+              <Image src="/img/game_timer.png" alt="Timer" fill className="object-contain" />
+            </div>
+           <div className="absolute right-8 top-8 flex flex-col gap-4">
+            <div className="rounded-2xl bg-[#49416D] px-6 py-3 text-center shadow-lg">
+              <p ref={scoreDisplayRef} className="font-headline text-2xl font-bold text-white md:text-3xl">
+                Pontos: 0
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -584,16 +661,19 @@ function JogoView({
 }
 
 
-function HomeView({ onStart, hasCameraPermission }: { onStart: () => void, hasCameraPermission: boolean | null }) {
+function HomeView({ onStart, hasCameraPermission, isIos }: { onStart: () => void, hasCameraPermission: boolean | null, isIos: boolean }) {
   return (
-    <main className="flex h-[100svh] w-full flex-row pb-2">
+    <main className={cn(
+      "flex w-full flex-row",
+      isIos ? "h-[130svh]" : "h-[100svh]"
+    )}>
       {/* Left Panel */}
       <div className="flex w-1/2 flex-col items-center justify-center bg-card p-4 md:p-8">
         <Logo className="h-64 w-64 md:h-64 md:w-64 lg:h-96 lg:w-96" />
       </div>
 
       {/* Right Panel */}
-      <div className="flex h-full w-1/2 flex-1 flex-col items-center justify-center bg-panel-right p-4 md:p-8">
+      <div className="flex w-1/2 flex-col items-center justify-center bg-panel-right p-4 md:p-8">
         <div className="flex flex-col items-center gap-4 md:gap-6">
           <Button
             onClick={onStart}
@@ -635,6 +715,50 @@ function HomeView({ onStart, hasCameraPermission }: { onStart: () => void, hasCa
   );
 }
 
+function FinalView({ score, onPlayAgain, onExit, isIos }: { score: number; onPlayAgain: () => void; onExit: () => void; isIos: boolean; }) {
+  return (
+    <main className={cn(
+      "flex w-full flex-row",
+      isIos ? "h-[130svh]" : "h-[100svh]"
+    )}>
+      {/* Left Panel */}
+      <div className="flex w-1/2 flex-col items-center justify-center gap-4 bg-card p-4 text-center text-[#49416D] md:p-8">
+        <h1 className="font-headline text-5xl font-extrabold md:text-7xl">
+          Parabéns!
+        </h1>
+        <div className="text-center">
+          <p className="text-2xl md:text-3xl">Sua pontuação foi:</p>
+          <p className="font-headline text-7xl font-black text-primary md:text-9xl">
+            {score}
+          </p>
+        </div>
+      </div>
+
+      {/* Right Panel */}
+      <div className="flex w-1/2 flex-1 flex-col items-center justify-center bg-panel-right p-4 md:p-8">
+        <div className="flex flex-col items-center gap-4 md:gap-6">
+           <Button
+            onClick={onExit}
+            size="lg"
+            variant="outline"
+            className="h-14 w-64 rounded-2xl border-4 border-primary bg-card font-bold text-[#49416D] shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background md:h-20 md:w-[300px] md:text-xl"
+          >
+            Ir para o menu
+          </Button>
+          <Button
+            onClick={onPlayAgain}
+            size="lg"
+            variant="outline"
+            className="h-14 w-64 rounded-2xl border-4 border-primary bg-card font-bold text-[#49416D] shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background md:h-20 md:w-[300px] md:text-xl"
+          >
+            Jogar novamente
+          </Button>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 export default function Page() {
   const [currentView, setCurrentView] = useState<View>('home');
   const { toast } = useToast();
@@ -655,8 +779,21 @@ export default function Page() {
 
   const handleStartGame = (selections: Selections) => {
     setGameConfig(selections);
-    setScore(0); // Reseta a pontuação
+    setScore(0);
     setCurrentView('jogo');
+  };
+
+  const handleGameEnd = (finalScore: number) => {
+    setScore(finalScore);
+    setCurrentView('final');
+  };
+
+  const handlePlayAgain = () => {
+    setCurrentView('configuracoes');
+  };
+
+  const handleExit = () => {
+    setCurrentView('home');
   };
 
   // Solicita permissão da câmera ao carregar o app
@@ -690,13 +827,15 @@ export default function Page() {
   const renderView = () => {
     switch (currentView) {
       case 'home':
-        return <HomeView onStart={() => setCurrentView('configuracoes')} hasCameraPermission={hasCameraPermission} />;
+        return <HomeView onStart={() => setCurrentView('configuracoes')} hasCameraPermission={hasCameraPermission} isIos={isIos} />;
       case 'configuracoes':
-        return <ConfiguracoesView onStart={handleStartGame} />;
+        return <ConfiguracoesView onStart={handleStartGame} isIos={isIos} />;
       case 'jogo':
-        return <JogoView cameraStream={cameraStream} score={score} setScore={setScore} isIos={isIos} gameConfig={gameConfig} />;
+        return <JogoView cameraStream={cameraStream} isIos={isIos} gameConfig={gameConfig} onGameEnd={handleGameEnd} />;
+      case 'final':
+        return <FinalView score={score} onPlayAgain={handlePlayAgain} onExit={handleExit} isIos={isIos} />;
       default:
-        return <HomeView onStart={() => setCurrentView('configuracoes')} hasCameraPermission={hasCameraPermission}/>;
+        return <HomeView onStart={() => setCurrentView('configuracoes')} hasCameraPermission={hasCameraPermission} isIos={isIos}/>;
     }
   };
 
