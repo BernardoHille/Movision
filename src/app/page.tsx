@@ -91,7 +91,7 @@ const SelectionButton = memo(({
 SelectionButton.displayName = 'SelectionButton';
 
 
-function ConfiguracoesView({ onStart, isIos }: { onStart: (selections: Selections) => void; isIos: boolean; }) {
+function ConfiguracoesView({ onStart }: { onStart: (selections: Selections) => void; }) {
   const [selections, setSelections] = useState<Selections>({
     posicao: '',
     membros: '',
@@ -109,8 +109,7 @@ function ConfiguracoesView({ onStart, isIos }: { onStart: (selections: Selection
 
   return (
     <main className={cn(
-        "flex flex-col justify-center bg-[#49416D] p-4 pb-2",
-        isIos ? "min-h-[130svh]" : "min-h-[100svh]"
+        "flex flex-col justify-center bg-[#49416D] p-4 pb-2 min-h-[130svh] lg:min-h-screen"
       )}>
       <div className="flex w-full flex-col items-center justify-center">
         <div className="grid w-full max-w-6xl grid-cols-1 gap-2 sm:grid-cols-3 md:gap-2">
@@ -186,12 +185,10 @@ function ConfiguracoesView({ onStart, isIos }: { onStart: (selections: Selection
 
 function JogoView({ 
   cameraStream,
-  isIos,
   gameConfig,
   onGameEnd,
 }: { 
   cameraStream: MediaStream | null;
-  isIos: boolean;
   gameConfig: Selections;
   onGameEnd: (finalScore: number) => void;
 }) {
@@ -575,10 +572,7 @@ function JogoView({
   const angle = timePercentage * 360;
 
   return (
-    <div className={cn(
-        "relative w-screen overflow-hidden bg-black",
-        isIos ? "h-[130svh]" : "h-[100svh]"
-      )}>
+    <div className="relative w-screen h-[130svh] lg:h-screen overflow-hidden bg-black">
        <video
         ref={videoRef}
         autoPlay
@@ -665,12 +659,9 @@ function JogoView({
 }
 
 
-function HomeView({ onStart, hasCameraPermission, isIos }: { onStart: () => void, hasCameraPermission: boolean | null, isIos: boolean }) {
+function HomeView({ onStart, hasCameraPermission }: { onStart: () => void, hasCameraPermission: boolean | null }) {
   return (
-    <main className={cn(
-      "flex w-full flex-row",
-      isIos ? "h-[130svh]" : "h-[100svh]"
-    )}>
+    <main className="flex w-full flex-row h-[130svh] lg:h-screen">
       {/* Left Panel */}
       <div className="flex w-1/2 flex-col items-center justify-center bg-card p-4 md:p-8">
         <Logo className="h-64 w-64 md:h-64 md:w-64 lg:h-96 lg:w-96" />
@@ -719,12 +710,9 @@ function HomeView({ onStart, hasCameraPermission, isIos }: { onStart: () => void
   );
 }
 
-function FinalView({ score, onPlayAgain, onExit, isIos }: { score: number; onPlayAgain: () => void; onExit: () => void; isIos: boolean; }) {
+function FinalView({ score, onPlayAgain, onExit }: { score: number; onPlayAgain: () => void; onExit: () => void; }) {
   return (
-    <main className={cn(
-      "flex w-full flex-row",
-      isIos ? "h-[130svh]" : "h-[100svh]"
-    )}>
+    <main className="flex w-full flex-row h-[130svh] lg:h-screen">
       {/* Left Panel */}
       <div className="flex w-1/2 flex-col items-center justify-center gap-4 bg-card p-4 text-center text-[#49416D] md:p-8">
         <h1 className="font-headline text-5xl font-extrabold md:text-7xl">
@@ -763,12 +751,9 @@ function FinalView({ score, onPlayAgain, onExit, isIos }: { score: number; onPla
   );
 }
 
-function OrientacoesView({ onUnderstood, isIos, hasCameraPermission }: { onUnderstood: () => void; isIos: boolean; hasCameraPermission: boolean | null; }) {
+function OrientacoesView({ onUnderstood, hasCameraPermission }: { onUnderstood: () => void; hasCameraPermission: boolean | null; }) {
   return (
-    <main className={cn(
-      "flex flex-col items-center justify-center bg-[#49416D] p-4 text-white",
-      isIos ? "min-h-[130svh]" : "min-h-[100svh]"
-    )}>
+    <main className="flex flex-col items-center justify-center bg-[#49416D] p-4 text-white min-h-[130svh] lg:min-h-screen">
       <div className="flex w-full flex-1 flex-col items-center justify-center md:max-w-4xl">
         <h1 className="mb-4 font-headline text-xl font-bold sm:text-2xl md:text-3xl">Orientações</h1>
         <div className="flex w-full flex-col items-stretch justify-center gap-4 md:flex-row">
@@ -832,17 +817,11 @@ export default function Page() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [score, setScore] = useState(0);
-  const [isIos, setIsIos] = useState(false);
   const [gameConfig, setGameConfig] = useState<Selections>({
     posicao: '',
     membros: '',
     distancia: '',
   });
-
-  useEffect(() => {
-    // This check runs only on the client, where navigator is available.
-    setIsIos(/iPad|iPhone|iPod/.test(navigator.userAgent));
-  }, []);
 
   const handleStartGame = (selections: Selections) => {
     setGameConfig(selections);
@@ -894,17 +873,17 @@ export default function Page() {
   const renderView = () => {
     switch (currentView) {
       case 'orientacoes':
-        return <OrientacoesView onUnderstood={() => setCurrentView('home')} isIos={isIos} hasCameraPermission={hasCameraPermission} />;
+        return <OrientacoesView onUnderstood={() => setCurrentView('home')} hasCameraPermission={hasCameraPermission} />;
       case 'home':
-        return <HomeView onStart={() => setCurrentView('configuracoes')} hasCameraPermission={hasCameraPermission} isIos={isIos} />;
+        return <HomeView onStart={() => setCurrentView('configuracoes')} hasCameraPermission={hasCameraPermission} />;
       case 'configuracoes':
-        return <ConfiguracoesView onStart={handleStartGame} isIos={isIos} />;
+        return <ConfiguracoesView onStart={handleStartGame} />;
       case 'jogo':
-        return <JogoView cameraStream={cameraStream} isIos={isIos} gameConfig={gameConfig} onGameEnd={handleGameEnd} />;
+        return <JogoView cameraStream={cameraStream} gameConfig={gameConfig} onGameEnd={handleGameEnd} />;
       case 'final':
-        return <FinalView score={score} onPlayAgain={handlePlayAgain} onExit={handleExit} isIos={isIos} />;
+        return <FinalView score={score} onPlayAgain={handlePlayAgain} onExit={handleExit} />;
       default:
-        return <OrientacoesView onUnderstood={() => setCurrentView('home')} isIos={isIos} hasCameraPermission={hasCameraPermission} />;
+        return <OrientacoesView onUnderstood={() => setCurrentView('home')} hasCameraPermission={hasCameraPermission} />;
     }
   };
 
