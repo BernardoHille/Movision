@@ -23,6 +23,29 @@ type Selections = {
   distancia: string;
 };
 
+const useWindowSize = () => {
+  const [windowSize, setWindowSize] = useState<{ width: number | undefined; height: number | undefined }>({
+    width: undefined,
+    height: undefined,
+  });
+
+  useEffect(() => {
+    function handleResize() {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    }
+
+    window.addEventListener("resize", handleResize);
+    handleResize();
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return windowSize;
+}
+
 const SuperioresIconContent = memo(function SuperioresIconContent() {
   return (
     <>
@@ -109,13 +132,14 @@ function ConfiguracoesView({ onStart }: { onStart: (selections: Selections) => v
 
   return (
     <main className={cn(
-        "flex flex-col justify-center bg-[#49416D] p-4 pb-2 min-h-[130svh] lg:min-h-screen"
+        "flex flex-col justify-center bg-[#49416D] p-4 pb-2",
+        "h-[130svh] lg:h-screen"
       )}>
       <div className="flex w-full flex-col items-center justify-center">
         <div className="grid w-full max-w-6xl grid-cols-1 gap-2 sm:grid-cols-3 md:gap-2">
           {/* Posição */}
           <div className="flex flex-col items-center gap-2 sm:gap-4">
-            <h2 className="mb-1 text-xl font-bold text-white sm:text-2xl md:text-3xl">Posição</h2>
+            <h2 className="mb-1 text-base font-bold text-white sm:text-2xl">Posição</h2>
             <div className="flex w-full flex-1 flex-col gap-3 sm:gap-4">
               <SelectionButton option="posicao" value="em_pe" selections={selections} handleSelection={handleSelection}>
                 Em pé
@@ -128,12 +152,12 @@ function ConfiguracoesView({ onStart }: { onStart: (selections: Selections) => v
 
           {/* Membros */}
           <div className="flex flex-col items-center gap-2 sm:gap-4">
-            <h2 className="mb-1 text-xl font-bold text-white sm:text-2xl md:text-3xl">Membros</h2>
+            <h2 className="mb-1 text-base font-bold text-white sm:text-2xl">Membros</h2>
             <div className="flex w-full flex-1 flex-col gap-3 sm:gap-4">
               <SelectionButton
                 option="membros"
                 value="superiores"
-                className="flex-wrap"
+                className="flex-wrap text-sm"
                 selections={selections} 
                 handleSelection={handleSelection}
               >
@@ -142,7 +166,7 @@ function ConfiguracoesView({ onStart }: { onStart: (selections: Selections) => v
               <SelectionButton
                 option="membros"
                 value="inferiores"
-                className="flex-wrap"
+                className="flex-wrap text-sm"
                 selections={selections}
                 handleSelection={handleSelection}
               >
@@ -153,7 +177,7 @@ function ConfiguracoesView({ onStart }: { onStart: (selections: Selections) => v
 
           {/* Distância */}
           <div className="flex flex-col items-center gap-2 sm:gap-4">
-            <h2 className="mb-1 text-xl font-bold text-white sm:text-2xl md:text-3xl">Distância</h2>
+            <h2 className="mb-1 text-base font-bold text-white sm:text-2xl">Distância</h2>
             <div className="flex w-full flex-1 flex-col gap-3 sm:gap-4">
               <SelectionButton option="distancia" value="nivel_1" selections={selections} handleSelection={handleSelection}>
                 Nível 1
@@ -314,8 +338,8 @@ function JogoView({
         let spawnRangeHeight, spawnRangeYStart;
 
         if (gameConfig.membros === 'inferiores') {
-            spawnRangeYStart = canvas.height * 0.2;
-            spawnRangeHeight = canvas.height * 0.3;
+            spawnRangeYStart = canvas.height * 0.5; // Start from halfway down
+            spawnRangeHeight = canvas.height * 0.3; // Span 30% of the height
         } else {
             spawnRangeHeight = canvas.height * 0.6;
             spawnRangeYStart = (canvas.height - spawnRangeHeight) / 2;
@@ -572,7 +596,10 @@ function JogoView({
   const angle = timePercentage * 360;
 
   return (
-    <div className="relative w-screen h-[130svh] lg:h-screen overflow-hidden bg-black">
+    <div className={cn(
+        "relative w-screen overflow-hidden bg-black",
+        "h-[130svh] lg:h-screen"
+      )}>
        <video
         ref={videoRef}
         autoPlay
@@ -658,22 +685,21 @@ function JogoView({
   );
 }
 
-
-function HomeView({ onStart, hasCameraPermission }: { onStart: () => void, hasCameraPermission: boolean | null }) {
+function HomeViewVertical({ onStart, hasCameraPermission }: { onStart: () => void, hasCameraPermission: boolean | null }) {
   return (
-    <main className="flex w-full flex-row h-[130svh] lg:h-screen">
-      {/* Left Panel */}
-      <div className="flex w-1/2 flex-col items-center justify-center bg-card p-4 md:p-8">
-        <Logo className="h-64 w-64 md:h-64 md:w-64 lg:h-96 lg:w-96" />
+    <main className="flex h-screen w-full flex-col">
+      {/* Top Panel */}
+      <div className="flex h-1/2 w-full flex-col items-center justify-center bg-card p-4 sm:p-6 md:p-8">
+        <Logo className="h-48 w-48 sm:h-64 sm:w-64" />
       </div>
 
-      {/* Right Panel */}
-      <div className="flex w-1/2 flex-col items-center justify-center bg-panel-right p-4 md:p-8">
+      {/* Bottom Panel */}
+      <div className="flex h-1/2 w-full flex-col items-center justify-center bg-panel-right p-4 sm:p-6 md:p-8">
         <div className="flex flex-col items-center gap-4 md:gap-6">
           <Button
             onClick={onStart}
             size="lg"
-            className="h-14 w-40 rounded-2xl bg-primary text-base font-extrabold text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-panel-right md:h-24 md:w-[300px] md:text-2xl disabled:cursor-not-allowed disabled:bg-gray-500 disabled:opacity-70"
+            className="h-16 w-64 rounded-2xl bg-primary text-xl font-extrabold text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-panel-right sm:h-20 sm:w-80 sm:text-2xl disabled:cursor-not-allowed disabled:bg-gray-500 disabled:opacity-70"
             disabled={hasCameraPermission !== true}
           >
             Iniciar
@@ -682,7 +708,7 @@ function HomeView({ onStart, hasCameraPermission }: { onStart: () => void, hasCa
             asChild
             size="lg"
             variant="outline"
-            className="h-10 w-40 rounded-2xl border-4 border-primary bg-card font-bold text-[#49416D] shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background md:h-14 md:w-[300px] md:text-xl"
+            className="h-14 w-64 rounded-2xl border-4 border-primary bg-card font-bold text-[#49416D] shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background sm:h-16 sm:w-80 sm:text-lg"
           >
             <Link href="#">Tutorial</Link>
           </Button>
@@ -690,44 +716,111 @@ function HomeView({ onStart, hasCameraPermission }: { onStart: () => void, hasCa
             asChild
             size="lg"
             variant="outline"
-            className="h-10 w-40 rounded-2xl border-4 border-primary bg-card font-bold text-[#49416D] shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background md:h-14 md:w-[300px] md:text-xl"
+            className="h-14 w-64 rounded-2xl border-4 border-primary bg-card font-bold text-[#49416D] shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background sm:h-16 sm:w-80 sm:text-lg"
           >
             <Link href="#">Recomendações</Link>
           </Button>
         </div>
       </div>
-       {hasCameraPermission === false && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
-            <Alert variant="destructive" className="max-w-md">
-                <AlertTitle>Acesso à câmera necessário</AlertTitle>
-                <AlertDescription>
-                  Para continuar, por favor, habilite a permissão da câmera nas configurações do seu navegador e atualize a página.
-                </AlertDescription>
-              </Alert>
-          </div>
-        )}
+      {hasCameraPermission === false && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
+          <Alert variant="destructive" className="max-w-md">
+            <AlertTitle>Acesso à câmera necessário</AlertTitle>
+            <AlertDescription>
+              Para continuar, por favor, habilite a permissão da câmera nas configurações do seu navegador e atualize a página.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
     </main>
   );
 }
 
+function HomeViewHorizontal({ onStart, hasCameraPermission }: { onStart: () => void, hasCameraPermission: boolean | null }) {
+  return (
+    <main className="flex h-screen w-full flex-row">
+      {/* Left Panel */}
+      <div className="flex w-1/2 flex-col items-center justify-center bg-card p-4 sm:p-6 md:p-8">
+        <Logo className="h-48 w-48 sm:h-64 sm:w-64 lg:h-96 lg:w-96" />
+      </div>
+
+      {/* Right Panel */}
+      <div className="flex w-1/2 flex-col items-center justify-center bg-panel-right p-4 sm:p-6 md:p-8">
+        <div className="flex flex-col items-center gap-4 md:gap-6">
+          <Button
+            onClick={onStart}
+            size="lg"
+            className="h-10 w-48 rounded-2xl bg-primary text-sm font-extrabold text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-panel-right sm:h-12 sm:w-52 sm:text-lg md:h-20 md:w-[300px] md:text-2xl disabled:cursor-not-allowed disabled:bg-gray-500 disabled:opacity-70"
+            disabled={hasCameraPermission !== true}
+          >
+            Iniciar
+          </Button>
+          <Button
+            asChild
+            size="lg"
+            variant="outline"
+            className="h-10 w-48 rounded-2xl border-4 border-primary bg-card font-bold text-[#49416D] shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background sm:h-12 sm:w-52 sm:text-base md:h-14 md:w-[300px] md:text-xl"
+          >
+            <Link href="#">Tutorial</Link>
+          </Button>
+          <Button
+            asChild
+            size="lg"
+            variant="outline"
+            className="h-10 w-48 rounded-2xl border-4 border-primary bg-card font-bold text-[#49416D] shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background sm:h-12 sm:w-52 sm:text-base md:h-14 md:w-[300px] md:text-xl"
+          >
+            <Link href="#">Recomendações</Link>
+          </Button>
+        </div>
+      </div>
+      {hasCameraPermission === false && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
+          <Alert variant="destructive" className="max-w-md">
+            <AlertTitle>Acesso à câmera necessário</AlertTitle>
+            <AlertDescription>
+              Para continuar, por favor, habilite a permissão da câmera nas configurações do seu navegador e atualize a página.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+    </main>
+  );
+}
+
+
+function HomeView(props: { onStart: () => void, hasCameraPermission: boolean | null }) {
+  const { width = 0, height = 0 } = useWindowSize();
+  const isVertical = width < height;
+
+  if (width === 0) {
+    return null; // ou um loader
+  }
+
+  return isVertical ? <HomeViewVertical {...props} /> : <HomeViewHorizontal {...props} />;
+}
+
+
 function FinalView({ score, onPlayAgain, onExit }: { score: number; onPlayAgain: () => void; onExit: () => void; }) {
   return (
-    <main className="flex w-full flex-row h-[130svh] lg:h-screen">
+    <main className={cn(
+        "flex flex-col w-full",
+        "h-[130svh] lg:h-screen lg:flex-row"
+      )}>
       {/* Left Panel */}
-      <div className="flex w-1/2 flex-col items-center justify-center gap-4 bg-card p-4 text-center text-[#49416D] md:p-8">
-        <h1 className="font-headline text-5xl font-extrabold md:text-7xl">
+      <div className="flex w-full lg:w-1/2 h-1/2 lg:h-full flex-col items-center justify-center gap-4 bg-card p-4 text-center text-[#49416D] md:p-8">
+        <h1 className="font-headline text-3xl font-extrabold sm:text-5xl md:text-7xl">
           Parabéns!
         </h1>
         <div className="text-center">
-          <p className="text-2xl md:text-3xl">Sua pontuação foi:</p>
-          <p className="font-headline text-7xl font-black text-primary md:text-9xl">
+          <p className="text-lg sm:text-2xl md:text-3xl">Sua pontuação foi:</p>
+          <p className="font-headline text-5xl font-black text-primary sm:text-7xl md:text-9xl">
             {score}
           </p>
         </div>
       </div>
 
       {/* Right Panel */}
-      <div className="flex w-1/2 flex-1 flex-col items-center justify-center bg-panel-right p-4 md:p-8">
+      <div className="flex w-full lg:w-1/2 h-1/2 lg:h-full flex-1 flex-col items-center justify-center bg-panel-right p-4 md:p-8">
         <div className="flex flex-col items-center gap-4 md:gap-6">
            <Button
             onClick={onExit}
@@ -753,17 +846,20 @@ function FinalView({ score, onPlayAgain, onExit }: { score: number; onPlayAgain:
 
 function OrientacoesView({ onUnderstood, hasCameraPermission }: { onUnderstood: () => void; hasCameraPermission: boolean | null; }) {
   return (
-    <main className="flex flex-col items-center justify-center bg-[#49416D] p-4 text-white min-h-[130svh] lg:min-h-screen">
+    <main className={cn(
+        "flex flex-col items-center justify-center bg-[#49416D] p-4 text-white",
+        "h-[130svh] lg:h-screen"
+      )}>
       <div className="flex w-full flex-1 flex-col items-center justify-center md:max-w-4xl">
-        <h1 className="mb-4 font-headline text-xl font-bold sm:text-2xl md:text-3xl">Orientações</h1>
+        <h1 className="mb-4 font-headline text-lg font-bold sm:text-2xl md:text-3xl">Orientações</h1>
         <div className="flex w-full flex-col items-stretch justify-center gap-4 md:flex-row">
           {/* Dispositivo Card */}
           <div className="flex w-full flex-col rounded-2xl border-4 border-primary bg-card p-4 text-card-foreground md:w-1/2">
-            <h2 className="mb-2 flex items-center justify-center gap-2 font-headline text-xl font-bold text-[#49416D] md:text-2xl">
+            <h2 className="mb-2 flex items-center justify-center gap-2 font-headline text-lg font-bold text-[#49416D] md:text-2xl">
               <Smartphone /> Dispositivo
             </h2>
             <div className="flex flex-1 flex-col items-center justify-between gap-4 md:flex-row">
-              <ul className="flex-1 list-disc space-y-2 pl-5 text-base md:text-lg">
+              <ul className="flex-1 list-disc space-y-2 pl-5 text-xs md:text-base">
                 <li>Apoie o dispositivo sobre uma superfície firme.</li>
                 <li>Posicione o celular na orientação horizontal.</li>
               </ul>
@@ -779,10 +875,10 @@ function OrientacoesView({ onUnderstood, hasCameraPermission }: { onUnderstood: 
 
           {/* Usuário Card */}
           <div className="flex w-full flex-col rounded-2xl border-4 border-primary bg-card p-4 text-card-foreground md:w-1/2">
-            <h2 className="mb-2 flex items-center justify-center gap-2 font-headline text-xl font-bold text-[#49416D] md:text-2xl">
+            <h2 className="mb-2 flex items-center justify-center gap-2 font-headline text-lg font-bold text-[#49416D] md:text-2xl">
               <User /> Usuário
             </h2>
-            <ul className="flex-1 list-disc space-y-2 pl-5 text-base md:text-lg">
+            <ul className="flex-1 list-disc space-y-2 pl-5 text-xs md:text-base">
               <li>Posicione-se de frente para a câmera.</li>
               <li>Garanta que todo seu corpo esteja visível.</li>
               <li>Tenha espaço livre ao redor para se movimentar.</li>
