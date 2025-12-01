@@ -15,7 +15,7 @@ export default {
         code: ['monospace'],
       },
       colors: {
-        'panel-right': '#49416D',
+        'panel-right': 'hsl(var(--background))',
         tutorial: {
           DEFAULT: '#49416D',
         },
