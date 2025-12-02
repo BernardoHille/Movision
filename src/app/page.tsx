@@ -648,7 +648,7 @@ function JogoView({
   }, [cameraStream, sphereImages, explosionImages, gameConfig, onGameEnd]);
 
   useEffect(() => {
-    if (sphereImages.length > 0 && explosionImages.length > 0 && showCountdown) {
+    if (showCountdown) {
       if (countdown > 0) {
         const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
         return () => clearTimeout(timer);
@@ -657,7 +657,7 @@ function JogoView({
         needsToSpawnCircle.current = true;
       }
     }
-  }, [countdown, showCountdown, sphereImages, explosionImages]);
+  }, [countdown, showCountdown]);
 
   const timePercentage = gameTime / initialGameTime;
   const angle = timePercentage * 360;
@@ -788,14 +788,6 @@ function HomeView({
             Iniciar
           </Button>
           <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="h-10 w-48 rounded-2xl border-4 border-primary bg-card font-bold text-primary shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background sm:h-12 sm:w-52 sm:text-base md:h-14 md:w-[300px] md:text-xl"
-          >
-            <Link href="#">Tutorial</Link>
-          </Button>
-          <Button
             onClick={onRecommendationsClick}
             size="lg"
             variant="outline"
@@ -830,13 +822,9 @@ function FinalView({
   onExit: () => void;
 }) {
   return (
-    <main
-      className={cn(
-        'flex h-screen w-full flex-col lg:flex-row'
-      )}
-    >
+    <main className={cn('flex h-screen w-full flex-row')}>
       {/* Left Panel */}
-      <div className="flex min-h-[50svh] w-full flex-col items-center justify-center gap-4 bg-card p-4 text-center text-primary md:p-8 lg:min-h-full lg:w-1/2">
+      <div className="flex w-1/2 flex-col items-center justify-center gap-4 bg-card p-4 text-center text-primary md:p-8">
         <h1 className="font-headline text-3xl font-extrabold sm:text-5xl md:text-7xl">
           Parabéns!
         </h1>
@@ -849,7 +837,7 @@ function FinalView({
       </div>
 
       {/* Right Panel */}
-      <div className="flex min-h-[50svh] w-full flex-1 flex-col items-center justify-center bg-panel-right p-4 md:p-8 lg:min-h-full lg:w-1/2">
+      <div className="flex w-1/2 flex-1 flex-col items-center justify-center bg-panel-right p-4 md:p-8">
         <div className="flex flex-col items-center gap-4 md:gap-6">
           <Button
             onClick={onExit}
@@ -992,7 +980,7 @@ export default function Page() {
   // Solicita permissão da câmera ao carregar o app
   useEffect(() => {
     // Evita pedir permissão novamente se já foi definida
-    if (hasCameraPermission !== null || currentView !== 'orientacoes') return;
+    if (hasCameraPermission !== null) return;
 
     const getCameraPermission = async () => {
       try {
@@ -1018,7 +1006,7 @@ export default function Page() {
     getCameraPermission();
 
     // A limpeza do stream agora é tratada no JogoView para evitar que a câmera desligue prematuramente
-  }, [toast, hasCameraPermission, currentView]);
+  }, [toast, hasCameraPermission]);
 
   const renderView = () => {
     switch (currentView) {
