@@ -39,7 +39,7 @@ export function OrientationLock({ children }: { children: ReactNode }) {
 
   if (isVertical) {
     return (
-      <div className="fixed inset-0 z-50 flex h-screen w-screen flex-col items-center justify-center gap-4 bg-background px-8 text-foreground">
+      <div className="fixed inset-0 z-50 flex h-screen w-screen flex-col items-center justify-center gap-4 bg-white px-8 text-foreground">
         <RotateCw className="h-12 w-12 animate-spin" />
         <p className="text-center text-xl font-semibold">
           Por favor, gire seu dispositivo

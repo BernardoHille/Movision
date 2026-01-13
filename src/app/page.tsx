@@ -159,7 +159,7 @@ function ConfiguracoesView({
             <h2 className="mb-1 text-base font-bold text-white sm:text-2xl">
               Velocidade
             </h2>
-            <div className="flex w-full flex-1 flex-col gap-3 sm:gap-4">
+            <div className="flex w-full flex-1 flex-col gap-3 sm:gap_4">
               <SelectionButton
                 option="velocidade"
                 value="lento"
@@ -202,6 +202,72 @@ function ConfiguracoesView({
   );
 }
 
+const getObjectFitData = (
+  container: HTMLElement,
+  content: { width: number; height: number }
+) => {
+  const { clientWidth: cw, clientHeight: ch } = container;
+  const { width: iw, height: ih } = content;
+
+  if (iw === 0 || ih === 0) {
+    return { scale: 1, offsetX: 0, offsetY: 0 };
+  }
+
+  const scale = Math.max(cw / iw, ch / ih);
+  const drawnWidth = iw * scale;
+  const drawnHeight = ih * scale;
+  const offsetX = (cw - drawnWidth) / 2;
+  const offsetY = (ch - drawnHeight) / 2;
+
+  return {
+    scale,
+    offsetX,
+    offsetY,
+  };
+};
+
+const canvasToScreenCoords = (
+  circle: { x: number; y: number; radius: number },
+  canvas: HTMLCanvasElement,
+  video: HTMLVideoElement
+) => {
+  const videoRect = video.getBoundingClientRect();
+  const { scale, offsetX, offsetY } = getObjectFitData(video, {
+    width: canvas.width,
+    height: canvas.height,
+  });
+
+  const invertedX = canvas.width - circle.x;
+
+  const screenX = videoRect.left + offsetX + invertedX * scale;
+  const screenY = videoRect.top + offsetY + circle.y * scale;
+  const screenRadius = circle.radius * scale;
+
+  return { x: screenX, y: screenY, radius: screenRadius };
+};
+
+const checkCircleUiCollision = (
+  circle: { x: number; y: number; radius: number },
+  uiBoxes: DOMRect[]
+) => {
+  for (const box of uiBoxes) {
+    if (!box) continue;
+    const boxRight = box.left + box.width;
+    const boxBottom = box.top + box.height;
+
+    // Check for overlap between circle's bounding box and the UI element's bounding box
+    if (
+      circle.x + circle.radius > box.left &&
+      circle.x - circle.radius < boxRight &&
+      circle.y + circle.radius > box.top &&
+      circle.y - circle.radius < boxBottom
+    ) {
+      return true; // Collision detected
+    }
+  }
+  return false; // No collision
+};
+
 function JogoView({
   cameraStream,
   gameConfig,
@@ -218,8 +284,9 @@ function JogoView({
   const [initialGameTime] = useState(180);
   const [gameTime, setGameTime] = useState(initialGameTime);
   const scoreRef = useRef(0);
-  const scoreDisplayRef = useRef<HTMLParagraphElement>(null);
   const endTimeRef = useRef<number | null>(null);
+  const uiTimerRef = useRef<HTMLDivElement>(null);
+  const uiScoreRef = useRef<HTMLDivElement>(null);
 
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
   const lastVideoTimeRef = useRef(-1);
@@ -238,6 +305,8 @@ function JogoView({
   const [explosionImages, setExplosionImages] = useState<HTMLImageElement[]>(
     []
   );
+
+  const sphereGlowColors = ['#21e3ea', '#ab51d8', '#04a3ae'];
 
   const explosionRef = useRef<{
     x: number;
@@ -334,73 +403,47 @@ function JogoView({
 
     const spawnCircle = (landmarks?: any[]) => {
       const canvas = canvasRef.current;
-      if (!canvas || canvas.width === 0 || canvas.height === 0) return;
+      const videoEl = videoRef.current;
+      if (!canvas || !videoEl || canvas.width === 0 || canvas.height === 0)
+        return;
+
+      const uiBoxes = [
+        uiTimerRef.current?.getBoundingClientRect(),
+        uiScoreRef.current?.getBoundingClientRect(),
+      ].filter((r): r is DOMRect => !!r);
 
       const radius = Math.min(canvas.width, canvas.height) * 0.09;
       let x: number, y: number;
 
-      const collisionRadius = radius * 2.5; // Safety distance from player
+      const playerCollisionRadius = radius * 2.5;
       let isColliding = true;
       let attempts = 0;
-
-      const rem = 16;
-      const timerSize = 5 * rem; // 5rem = h-20/w-20
-      const padding = 2 * rem;
-      const scoreBoxWidth = 10 * rem;
-      const scoreBoxHeight = 5 * rem;
-
-      const timerZone = {
-        x1: padding,
-        y1: padding,
-        x2: padding + timerSize,
-        y2: padding + timerSize,
-      };
-      const scoreZone = {
-        x1: canvas.width - padding - scoreBoxWidth,
-        y1: padding,
-        x2: canvas.width - padding,
-        y2: padding + scoreBoxHeight,
-      };
 
       let spawnRangeHeight, spawnRangeYStart;
 
       if (gameConfig.membros === 'inferiores') {
-        spawnRangeYStart = canvas.height * 0.7;
-        spawnRangeHeight = canvas.height * 0.1;
+        spawnRangeYStart = canvas.height * 0.5; // Start from the middle of the screen
+        spawnRangeHeight = canvas.height * 0.4; // Allow spawning in a 40% height range
       } else {
         spawnRangeHeight = canvas.height * 0.6;
         spawnRangeYStart = (canvas.height - spawnRangeHeight) / 2;
       }
 
-      // Ensure the sphere doesn't spawn off-screen at the bottom
       spawnRangeHeight = Math.max(0, spawnRangeHeight - radius);
 
       while (isColliding && attempts < 20) {
-        isColliding = false;
         attempts++;
+        isColliding = false;
 
-        const spawnSide = Math.random() < 0.5 ? 'left' : 'right';
-        const horizontalPadding = canvas.width * 0.1;
-        const sideWidth = canvas.width / 2 - horizontalPadding;
-
-        if (spawnSide === 'left') {
-          x = Math.random() * sideWidth + horizontalPadding;
-        } else {
-          x = canvas.width - (Math.random() * sideWidth + horizontalPadding);
-        }
-
+        x = Math.random() * (canvas.width - radius * 2) + radius;
         y = Math.random() * spawnRangeHeight + spawnRangeYStart;
 
-        if (
-          (x > timerZone.x1 - radius &&
-            x < timerZone.x2 + radius &&
-            y > timerZone.y1 - radius &&
-            y < timerZone.y2 + radius) ||
-          (x > scoreZone.x1 - radius &&
-            x < scoreZone.x2 + radius &&
-            y > scoreZone.y1 - radius &&
-            y < scoreZone.y2 + radius)
-        ) {
+        const screenCircle = canvasToScreenCoords(
+          { x, y, radius },
+          canvas,
+          videoEl
+        );
+        if (checkCircleUiCollision(screenCircle, uiBoxes)) {
           isColliding = true;
           continue;
         }
@@ -408,9 +451,9 @@ function JogoView({
         if (landmarks) {
           for (const landmark of landmarks) {
             for (const point of landmark) {
-              const dx = point.x * canvas.width - x;
-              const dy = point.y * canvas.height - y;
-              if (Math.sqrt(dx * dx + dy * dy) < collisionRadius) {
+              const dx = point.x * canvas.width - x!;
+              const dy = point.y * canvas.height - y!;
+              if (Math.sqrt(dx * dx + dy * dy) < playerCollisionRadius) {
                 isColliding = true;
                 break;
               }
@@ -421,15 +464,10 @@ function JogoView({
       }
 
       if (isColliding) {
-        const spawnSide = Math.random() < 0.5 ? 'left' : 'right';
-        const horizontalPadding = canvas.width * 0.1;
-        const sideWidth = canvas.width / 2 - horizontalPadding;
-        if (spawnSide === 'left') {
-          x = Math.random() * sideWidth + horizontalPadding;
-        } else {
-          x = canvas.width - (Math.random() * sideWidth + horizontalPadding);
-        }
-        y = Math.random() * spawnRangeHeight + spawnRangeYStart;
+        x = Math.random() * (canvas.width - radius * 2) + radius;
+        y =
+          Math.random() * (spawnRangeHeight - radius) +
+          (spawnRangeYStart + radius);
       }
 
       const sphereType = Math.floor(Math.random() * sphereImages.length);
@@ -455,7 +493,7 @@ function JogoView({
         if (circleRef.current && circleRef.current.id === newCircleId) {
           needsToSpawnCircle.current = true;
         }
-      }, 5000); // 5-second timeout for the sphere to disappear
+      }, 5000);
     };
 
     const startMediaPipe = async () => {
@@ -573,9 +611,6 @@ function JogoView({
 
                   circleRef.current.visible = false;
                   scoreRef.current += 1;
-                  if (scoreDisplayRef.current) {
-                    scoreDisplayRef.current.innerText = `Pontos: ${scoreRef.current}`;
-                  }
 
                   if (sphereTimeoutRef.current) {
                     clearTimeout(sphereTimeoutRef.current);
@@ -599,7 +634,33 @@ function JogoView({
       }
 
       if (circleRef.current && circleRef.current.visible) {
+        const uiBoxes = [
+          uiTimerRef.current?.getBoundingClientRect(),
+          uiScoreRef.current?.getBoundingClientRect(),
+        ].filter((r): r is DOMRect => !!r);
+
+        const screenCircle = canvasToScreenCoords(
+          circleRef.current,
+          canvas,
+          video
+        );
+        if (checkCircleUiCollision(screenCircle, uiBoxes)) {
+          circleRef.current.visible = false;
+          if (sphereTimeoutRef.current) {
+            clearTimeout(sphereTimeoutRef.current);
+          }
+          needsToSpawnCircle.current = true;
+        }
+      }
+
+      if (circleRef.current && circleRef.current.visible) {
         const radius = circleRef.current.radius;
+        const glowColor = sphereGlowColors[circleRef.current.type];
+
+        // Add glow effect
+        canvasCtx.shadowBlur = 40;
+        canvasCtx.shadowColor = glowColor;
+
         canvasCtx.drawImage(
           circleRef.current.image,
           circleRef.current.x - radius,
@@ -607,6 +668,10 @@ function JogoView({
           radius * 2,
           radius * 2
         );
+
+        // Reset shadow for other drawings
+        canvasCtx.shadowBlur = 0;
+        canvasCtx.shadowColor = 'transparent';
       }
 
       if (explosionRef.current) {
@@ -713,8 +778,12 @@ function JogoView({
           </div>
         </div>
       ) : (
-        <div className="pointer-events-none absolute inset-0 z-10 flex justify-between p-8">
-          <div className="relative h-20 w-20">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-between p-8">
+          <div
+            ref={uiTimerRef}
+            data-ui-element="true"
+            className="relative h-20 w-20"
+          >
             <div
               className="absolute rounded-full"
               style={{
@@ -732,15 +801,14 @@ function JogoView({
               className="object-contain saturate-100 contrast-100"
             />
           </div>
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl bg-panel-right px-6 py-3 text-center shadow-lg">
-              <p
-                ref={scoreDisplayRef}
-                className="font-headline text-2xl font-bold text-white md:text-3xl"
-              >
-                Pontos: 0
-              </p>
-            </div>
+          <div
+            ref={uiScoreRef}
+            data-ui-element="true"
+            className="w-fit rounded-2xl bg-panel-right px-6 py-3 text-center shadow-lg"
+          >
+            <p className="font-headline text-2xl font-bold text-white md:text-3xl">
+              Pontos: {scoreRef.current}
+            </p>
           </div>
         </div>
       )}
@@ -762,11 +830,11 @@ function JogoView({
 
 function HomeView({
   onStart,
-  onRecommendationsClick,
+  onTutorial,
   hasCameraPermission,
 }: {
   onStart: () => void;
-  onRecommendationsClick: () => void;
+  onTutorial: () => void;
   hasCameraPermission: boolean | null;
 }) {
   return (
@@ -788,10 +856,10 @@ function HomeView({
             Iniciar
           </Button>
           <Button
-            onClick={onRecommendationsClick}
+            onClick={onTutorial}
             size="lg"
             variant="outline"
-            className="h-10 w-48 rounded-2xl border-4 border-primary bg-card font-bold text-primary shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background sm:h-12 sm:w-52 sm:text-base md:h-14 md:w-[300px] md:text-xl"
+            className="h-10 w-48 rounded-2xl border-2 border-primary bg-card text-sm font-bold text-primary shadow-lg transition-transform hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background sm:h-12 sm:w-52 sm:text-base md:h-16 md:w-[300px] md:text-xl"
           >
             Recomendações
           </Button>
@@ -973,10 +1041,6 @@ export default function Page() {
     setCurrentView('home');
   };
 
-  const handleRecommendationsClick = () => {
-    setCurrentView('orientacoes');
-  };
-
   // Solicita permissão da câmera ao carregar o app
   useEffect(() => {
     // Evita pedir permissão novamente se já foi definida
@@ -1021,7 +1085,7 @@ export default function Page() {
         return (
           <HomeView
             onStart={() => setCurrentView('configuracoes')}
-            onRecommendationsClick={handleRecommendationsClick}
+            onTutorial={() => setCurrentView('orientacoes')}
             hasCameraPermission={hasCameraPermission}
           />
         );
@@ -1055,3 +1119,5 @@ export default function Page() {
 
   return <>{renderView()}</>;
 }
+
+    
