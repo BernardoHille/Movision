@@ -422,8 +422,8 @@ function JogoView({
       let spawnRangeHeight, spawnRangeYStart;
 
       if (gameConfig.membros === 'inferiores') {
-        spawnRangeYStart = canvas.height * 0.5; // Start from the middle of the screen
-        spawnRangeHeight = canvas.height * 0.4; // Allow spawning in a 40% height range
+        spawnRangeYStart = canvas.height * 0.5;
+        spawnRangeHeight = canvas.height * 0.4;
       } else {
         spawnRangeHeight = canvas.height * 0.6;
         spawnRangeYStart = (canvas.height - spawnRangeHeight) / 2;
@@ -443,6 +443,7 @@ function JogoView({
           canvas,
           videoEl
         );
+
         if (checkCircleUiCollision(screenCircle, uiBoxes)) {
           isColliding = true;
           continue;
@@ -644,6 +645,7 @@ function JogoView({
           canvas,
           video
         );
+
         if (checkCircleUiCollision(screenCircle, uiBoxes)) {
           circleRef.current.visible = false;
           if (sphereTimeoutRef.current) {
@@ -779,11 +781,7 @@ function JogoView({
         </div>
       ) : (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-between p-8">
-          <div
-            ref={uiTimerRef}
-            data-ui-element="true"
-            className="relative h-20 w-20"
-          >
+          <div ref={uiTimerRef} className="relative h-20 w-20">
             <div
               className="absolute rounded-full"
               style={{
@@ -803,7 +801,6 @@ function JogoView({
           </div>
           <div
             ref={uiScoreRef}
-            data-ui-element="true"
             className="w-fit rounded-2xl bg-panel-right px-6 py-3 text-center shadow-lg"
           >
             <p className="font-headline text-2xl font-bold text-white md:text-3xl">
@@ -943,42 +940,42 @@ function OrientacoesView({
       )}
     >
       <div className="flex w-full flex-1 flex-col items-center justify-center md:max-w-4xl">
-        <h1 className="mb-4 font-headline text-lg font-bold sm:text-2xl md:text-3xl">
+        <h1 className="mb-4 font-headline text-xl font-bold sm:text-2xl md:text-3xl">
           Orientações
         </h1>
-        <div className="flex w-full flex-col items-stretch justify-center gap-4 md:flex-row">
+        <div className="flex w-full flex-row items-stretch justify-center gap-4">
           {/* Dispositivo Card */}
-          <div className="flex w-full flex-col rounded-2xl border-4 border-primary bg-card p-4 text-card-foreground md:w-1/2">
-            <h2 className=" mb-4 flex items-center justify-center gap-2 font-headline text-lg text-[#49416D] md:text-2xl">
+          <div className="flex w-1/2 flex-col rounded-2xl border-4 border-primary bg-card p-4 text-card-foreground">
+            <h2 className=" mb-4 flex items-center justify-center gap-2 font-headline text-lg font-bold text-[#49416D] sm:text-xl">
               <Smartphone />{' '}
               <span className="font-bold text-[#49416D]">Dispositivo</span>
             </h2>
-            <div className="flex flex-1 flex-col items-center justify-between gap-4 md:flex-row">
-              <ul className="flex-1 list-disc space-y-2 pl-5 text-xs md:text-base">
-                <li className="font-medium">
+            <div className="flex flex-1 flex-row items-center justify-between gap-4">
+              <ul className="flex-1 list-disc space-y-2 pl-5 text-xs font-medium sm:text-sm">
+                <li>
                   Apoie o dispositivo sobre uma superfície firme e no chão,
                   mantendo-o inclinado para você.
                 </li>
-                <li className="font-medium">
+                <li>
                   Posicione o celular na orientação horizontal.
                 </li>
               </ul>
               <Image
                 src="/img/suporte.png"
                 alt="Celular em um suporte"
-                width={120}
-                height={120}
+                width={100}
+                height={100}
                 className="rounded-lg object-contain"
               />
             </div>
           </div>
 
           {/* Usuário Card */}
-          <div className="flex w-full flex-col rounded-2xl border-4 border-primary bg-card p-4 text-card-foreground md:w-1/2">
-            <h2 className="mb-2 flex items-center justify-center gap-2 font-headline text-lg font-bold text-[#49416D] md:text-2xl">
+          <div className="flex w-1/2 flex-col rounded-2xl border-4 border-primary bg-card p-4 text-card-foreground">
+            <h2 className="mb-2 flex items-center justify-center gap-2 font-headline text-lg font-bold text-[#49416D] sm:text-xl">
               <User /> <span className="font-bold text-[#49416D]">Usuário</span>
             </h2>
-            <ul className="flex-1 list-disc space-y-2 pl-5 text-xs font-medium md:text-base">
+            <ul className="flex-1 list-disc space-y-2 pl-5 text-xs font-medium sm:text-sm">
               <li>
                 Posicione-se de frente para a câmera, garantindo que todo seu
                 corpo esteja visível na tela.
@@ -1119,5 +1116,3 @@ export default function Page() {
 
   return <>{renderView()}</>;
 }
-
-    
