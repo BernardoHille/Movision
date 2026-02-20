@@ -306,7 +306,7 @@ function JogoView({
     []
   );
 
-  const sphereGlowColors = ['#21e3ea', '#ab51d8', '#04a3ae'];
+  const sphereGlowColors = ['#00D5FF', '#FF2D2D', '#FFD400'];
 
   const explosionRef = useRef<{
     x: number;
@@ -864,7 +864,7 @@ function HomeView({
       </div>
       {hasCameraPermission === false && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
-          <Alert variant="destructive" className="max-w-md">
+          <Alert variant="destructive" className="max-md">
             <AlertTitle>Acesso à câmera necessário</AlertTitle>
             <AlertDescription>
               Para continuar, por favor, habilite a permissão da câmera nas
