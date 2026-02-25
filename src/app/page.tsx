@@ -255,17 +255,16 @@ const checkCircleUiCollision = (
     const boxRight = box.left + box.width;
     const boxBottom = box.top + box.height;
 
-    // Check for overlap between circle's bounding box and the UI element's bounding box
     if (
       circle.x + circle.radius > box.left &&
       circle.x - circle.radius < boxRight &&
       circle.y + circle.radius > box.top &&
       circle.y - circle.radius < boxBottom
     ) {
-      return true; // Collision detected
+      return true;
     }
   }
-  return false; // No collision
+  return false;
 };
 
 function JogoView({
@@ -355,14 +354,14 @@ function JogoView({
 
   useEffect(() => {
     const spherePaths = [
-      '/img/sphere.png',
-      '/img/sphere-v2.png',
-      '/img/sphere-v3.png',
+      '/img/sphere1.png',
+      '/img/sphere-v21.png',
+      '/img/sphere-v31.png',
     ];
     const explosionPaths = [
-      '/img/explode.png',
-      '/img/explode-v2.png',
-      '/img/explode-v3.png',
+      '/img/explode1.png',
+      '/img/explode-v21.png',
+      '/img/explode-v31.png',
     ];
 
     const loadedSphereImages: HTMLImageElement[] = [];
@@ -659,7 +658,6 @@ function JogoView({
         const radius = circleRef.current.radius;
         const glowColor = sphereGlowColors[circleRef.current.type];
 
-        // Add glow effect
         canvasCtx.shadowBlur = 40;
         canvasCtx.shadowColor = glowColor;
 
@@ -671,7 +669,6 @@ function JogoView({
           radius * 2
         );
 
-        // Reset shadow for other drawings
         canvasCtx.shadowBlur = 0;
         canvasCtx.shadowColor = 'transparent';
       }
@@ -836,12 +833,10 @@ function HomeView({
 }) {
   return (
     <main className="flex h-screen w-full flex-row">
-      {/* Left Panel */}
       <div className="flex w-1/2 flex-col items-center justify-center bg-card p-4 sm:p-6 md:p-8">
         <Logo className="h-48 w-48 sm:h-64 sm:w-64 lg:h-96 lg:w-96" />
       </div>
 
-      {/* Right Panel */}
       <div className="flex w-1/2 flex-col items-center justify-center bg-panel-right p-4 sm:p-6 md:p-8">
         <div className="flex flex-col items-center gap-4 md:gap-6">
           <Button
@@ -888,7 +883,6 @@ function FinalView({
 }) {
   return (
     <main className={cn('flex h-screen w-full flex-row')}>
-      {/* Left Panel */}
       <div className="flex w-1/2 flex-col items-center justify-center gap-4 bg-card p-4 text-center text-primary md:p-8">
         <h1 className="font-headline text-3xl font-extrabold sm:text-5xl md:text-7xl">
           Parabéns!
@@ -901,7 +895,6 @@ function FinalView({
         </div>
       </div>
 
-      {/* Right Panel */}
       <div className="flex w-1/2 flex-1 flex-col items-center justify-center bg-panel-right p-4 md:p-8">
         <div className="flex flex-col items-center gap-4 md:gap-6">
           <Button
@@ -944,7 +937,6 @@ function OrientacoesView({
           Orientações
         </h1>
         <div className="flex w-full flex-row items-stretch justify-center gap-4">
-          {/* Dispositivo Card */}
           <div className="flex w-1/2 flex-col rounded-2xl border-4 border-primary bg-card p-4 text-card-foreground">
             <h2 className=" mb-4 flex items-center justify-center gap-2 font-headline text-lg font-bold text-[#49416D] sm:text-xl">
               <Smartphone />{' '}
@@ -970,7 +962,6 @@ function OrientacoesView({
             </div>
           </div>
 
-          {/* Usuário Card */}
           <div className="flex w-1/2 flex-col rounded-2xl border-4 border-primary bg-card p-4 text-card-foreground">
             <h2 className="mb-2 flex items-center justify-center gap-2 font-headline text-lg font-bold text-[#49416D] sm:text-xl">
               <User /> <span className="font-bold text-[#49416D]">Usuário</span>
@@ -1038,9 +1029,7 @@ export default function Page() {
     setCurrentView('home');
   };
 
-  // Solicita permissão da câmera ao carregar o app
   useEffect(() => {
-    // Evita pedir permissão novamente se já foi definida
     if (hasCameraPermission !== null) return;
 
     const getCameraPermission = async () => {
@@ -1065,8 +1054,6 @@ export default function Page() {
     };
 
     getCameraPermission();
-
-    // A limpeza do stream agora é tratada no JogoView para evitar que a câmera desligue prematuramente
   }, [toast, hasCameraPermission]);
 
   const renderView = () => {
